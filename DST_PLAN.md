@@ -1,0 +1,28 @@
+# KurdDesign-AI
+AI-powered Kurdish clothing design app
+# KurdDesign-AI — DST Embroidery Designer
+
+## Project Goal
+
+KurdDesign-AI is an embroidery digitizing app focused on creating and exporting DST embroidery files.
+
+## Main Features
+
+- Import PNG and JPG designs
+- Create embroidery stitches
+- Set design width and height in millimeters
+- Configure stitch density
+- Configure stitch types
+- Manage thread colors
+- Preview embroidery stitches
+- Export designs as DST files
+
+## Development Steps
+
+1. DST project foundation
+2. Embroidery stitch engine
+3. Design editor
+4. Stitch preview
+5. DST export
+6. Machine testing
+7. Mobile app interface
