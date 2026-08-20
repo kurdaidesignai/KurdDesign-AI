@@ -1,0 +1,129 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const KurdDesignAI());
+}
+
+class KurdDesignAI extends StatelessWidget {
+  const KurdDesignAI({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'KurdDesign-AI',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.deepPurple,
+      ),
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('KurdDesign-AI'),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 20),
+
+            const Text(
+              'دیزاینی جل و بەرگی کوردی',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            const Text(
+              'دیزاین دروست بکە و نەخشەی گلدان بۆ ئامادە بکە',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
+            ),
+
+            const SizedBox(height: 30),
+
+            _MenuButton(
+              icon: Icons.auto_awesome,
+              title: 'دیزاینی نوێ بە AI',
+              onPressed: () {},
+            ),
+
+            const SizedBox(height: 12),
+
+            _MenuButton(
+              icon: Icons.design_services,
+              title: 'نەخشەی گلدان',
+              onPressed: () {},
+            ),
+
+            const SizedBox(height: 12),
+
+            _MenuButton(
+              icon: Icons.file_download,
+              title: 'Export بۆ DST',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'بەشی DST لە هەنگاوی دواتر تەواو دەکرێت.',
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 12),
+
+            _MenuButton(
+              icon: Icons.photo_library,
+              title: 'دیزاینە هەڵگیراوەکان',
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuButton extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onPressed;
+
+  const _MenuButton({
+    required this.icon,
+    required this.title,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(
+          title,
+          style: const TextStyle(fontSize: 17),
+        ),
+      ),
+    );
+  }
+}
