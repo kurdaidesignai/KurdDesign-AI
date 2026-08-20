@@ -1,0 +1,110 @@
+import 'dart:typed_data';
+
+/// DST embroidery file exporter.
+///
+/// This creates a simple Tajima DST file from a list of stitch points.
+/// Coordinates are in embroidery units (1/10 mm).
+class DstExporter {
+  static Uint8List createDst(
+    List<StitchPoint> stitches, {
+    String name = 'KURDDESIGN',
+  }) {
+    final header = _createHeader(name);
+    final data = <int>[];
+
+    for (var i = 0; i < stitches.length; i++) {
+      final current = stitches[i];
+
+      if (i == 0) {
+        data.addAll(_encodeStitch(current.x, current.y, jump: true));
+      } else {
+        final previous = stitches[i - 1];
+        final dx = current.x - previous.x;
+        final dy = current.y - previous.y;
+
+        data.addAll(_encodeStitch(dx, dy));
+      }
+    }
+
+    // DST end-of-design command.
+    data.addAll([0x00, 0x00, 0xF3]);
+
+    return Uint8List.fromList([
+      ...header,
+      ...data,
+    ]);
+  }
+
+  static List<int> _createHeader(String name) {
+    final title = name.padRight(16).substring(0, 16);
+
+    final headerText = [
+      'LA:$title',
+      'ST:${'0'.padLeft(7)}',
+      'CO:${'1'.padLeft(3)}',
+      '+X:${'0'.padLeft(5)}',
+      '-X:${'0'.padLeft(5)}',
+      '+Y:${'0'.padLeft(5)}',
+      '-Y:${'0'.padLeft(5)}',
+      'AX:+X00000',
+      'AY:+Y00000',
+      'MX:+X00000',
+      'MY:+Y00000',
+      'PD:******',
+    ].join('\r');
+
+    final bytes = List<int>.filled(512, 0x20);
+    final textBytes = headerText.codeUnits;
+
+    for (var i = 0; i < textBytes.length && i < 511; i++) {
+      bytes[i] = textBytes[i];
+    }
+
+    bytes[511] = 0x1A;
+    return bytes;
+  }
+
+  static List<int> _encodeStitch(
+    int dx,
+    int dy, {
+    bool jump = false,
+  }) {
+    // Simple DST coordinate encoding.
+    var x = dx.clamp(-121, 121);
+    var y = dy.clamp(-121, 121);
+
+    var b1 = 0;
+    var b2 = 0;
+    var b3 = 0x03;
+
+    if (x >= 0) {
+      b1 |= 0x01;
+    } else {
+      b1 |= 0x02;
+      x = -x;
+    }
+
+    if (y >= 0) {
+      b2 |= 0x01;
+    } else {
+      b2 |= 0x02;
+      y = -y;
+    }
+
+    b1 |= (x & 0x7F) << 2;
+    b2 |= (y & 0x7F) << 2;
+
+    if (jump) {
+      b3 |= 0x80;
+    }
+
+    return [b1 & 0xFF, b2 & 0xFF, b3 & 0xFF];
+  }
+}
+
+class StitchPoint {
+  final int x;
+  final int y;
+
+  const StitchPoint(this.x, this.y);
+}
