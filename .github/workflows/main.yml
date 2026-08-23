@@ -2,16 +2,18 @@ name: Flutter Build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Flutter
@@ -25,5 +27,5 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Build Web
-        run: flutter build web
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign
