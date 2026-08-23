@@ -1,14 +1,65 @@
-        final previous = stitches[i - 1];
+import 'dart:typed_data';
+
+class StitchPoint {
+  final int x;
+  final int y;
+
+  const StitchPoint(this.x, this.y);
+}
+
+class DstExporter {
+  static Uint8List createDst(
+    List<StitchPoint> stitches, {
+    String name = 'KURDDESIGN',
+  }) {
+    final data = <int>[];
+
+    for (var i = 0; i < stitches.length; i++) {
+      final point = stitches[i];
+
+      if (i == 0) {
         data.addAll(
-          _encodeStitch(
-            current.x - previous.x,
-            current.y - previous.y,
-          ),
+          _encodeStitch(point.x, point.y, jump: true),
+        );
+      } else {
+        final previous = stitches[i - 1];
+
+        var dx = point.x - previous.x;
+        var dy = point.y - previous.y;
+
+        while (dx.abs() > 121 || dy.abs() > 121) {
+          final stepX = dx.clamp(-121, 121);
+          final stepY = dy.clamp(-121, 121);
+
+          data.addAll(
+            _encodeStitch(
+              stepX,
+              stepY,
+              jump: true,
+            ),
+          );
+
+          dx -= stepX;
+          dy -= stepY;
+        }
+
+        data.addAll(
+          _encodeStitch(dx, dy),
         );
       }
     }
 
-    data.addAll([0x00, 0x00, 0xF3]);
+    // End of DST design.
+    data.addAll([
+      0x00,
+      0x00,
+      0xF3,
+    ]);
+
+    final header = _createHeader(
+      name,
+      stitchCount: stitches.length,
+    );
 
     return Uint8List.fromList([
       ...header,
@@ -16,12 +67,17 @@
     ]);
   }
 
-  static List<int> _createHeader(String name) {
-    final title = name.padRight(16).substring(0, 16);
+  static List<int> _createHeader(
+    String name, {
+    required int stitchCount,
+  }) {
+    final title = name
+        .padRight(16)
+        .substring(0, 16);
 
     final headerText = [
       'LA:$title',
-      'ST:0000000',
+      'ST:${stitchCount.toString().padLeft(7, '0')}',
       'CO:001',
       '+X:00000',
       '-X:00000',
@@ -38,7 +94,11 @@
 
     final textBytes = headerText.codeUnits;
 
-    for (var i = 0; i < textBytes.length && i < 511; i++) {
+    for (
+      var i = 0;
+      i < textBytes.length && i < 511;
+      i++
+    ) {
       bytes[i] = textBytes[i];
     }
 
@@ -52,8 +112,8 @@
     int dy, {
     bool jump = false,
   }) {
-    var x = dx.clamp(-121, 121);
-    var y = dy.clamp(-121, 121);
+    var x = dx;
+    var y = dy;
 
     var b1 = 0;
     var b2 = 0;
@@ -86,4 +146,4 @@
       b3 & 0xFF,
     ];
   }
-}final textBytes = headerText.codeUnits;
+}
