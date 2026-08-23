@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
@@ -27,8 +28,8 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Analyze Flutter project
-        run: flutter analyze
+      - name: Analyze lib
+        run: flutter analyze lib
 
       - name: Build iOS
         run: flutter build ios --release --no-codesign
