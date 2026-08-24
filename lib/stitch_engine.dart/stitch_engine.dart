@@ -37,41 +37,22 @@ class StitchEngine {
     final scaleY =
         heightMm / resized.height;
 
-    for (
-      var y = 0;
-      y < resized.height;
-      y += step
-    ) {
-      for (
-        var x = 0;
-        x < resized.width;
-        x += step
-      ) {
-        final pixel =
-            resized.getPixel(x, y);
+    for (var y = 0; y < resized.height; y += step) {
+      for (var x = 0; x < resized.width; x += step) {
+        final pixel = resized.getPixel(x, y);
 
         final brightness =
-            (pixel.r +
-                    pixel.g +
-                    pixel.b) /
-                3;
+            (pixel.r + pixel.g + pixel.b) / 3;
 
         if (brightness < 160) {
           final stitchX =
-              ((x - resized.width / 2) *
-                      scaleX)
-                  .round();
+              ((x - resized.width / 2) * scaleX).round();
 
           final stitchY =
-              ((y - resized.height / 2) *
-                      scaleY)
-                  .round();
+              ((y - resized.height / 2) * scaleY).round();
 
           stitches.add(
-            StitchPoint(
-              stitchX,
-              stitchY,
-            ),
+            StitchPoint(stitchX, stitchY),
           );
         }
       }
