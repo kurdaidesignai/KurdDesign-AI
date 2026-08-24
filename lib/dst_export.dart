@@ -37,9 +37,13 @@ class DstExporter {
 
       final isFirst = i == 0;
 
-      while (dx.abs() > 121 || dy.abs() > 121) {
-        final stepX = dx.clamp(-121, 121);
-        final stepY = dy.clamp(-121, 121);
+      while (dx.abs() > 121 ||
+          dy.abs() > 121) {
+        final stepX =
+            dx.clamp(-121, 121);
+
+        final stepY =
+            dy.clamp(-121, 121);
 
         data.addAll(
           _encodeStitch(
@@ -65,7 +69,6 @@ class DstExporter {
       previousY = point.y;
     }
 
-    // DST end command.
     data.addAll([
       0x00,
       0x00,
@@ -107,17 +110,16 @@ class DstExporter {
       'PD:******',
     ].join('\r');
 
-    final bytes = List<int>.filled(
-      512,
-      0x20,
-    );
+    final bytes =
+        List<int>.filled(512, 0x20);
 
     final textBytes =
         headerText.codeUnits;
 
     for (
       var i = 0;
-      i < textBytes.length && i < 511;
+      i < textBytes.length &&
+          i < 511;
       i++
     ) {
       bytes[i] = textBytes[i];
@@ -140,7 +142,6 @@ class DstExporter {
     var b2 = 0;
     var b3 = 0x03;
 
-    // X movement.
     if (x >= 0) {
       if (x >= 81) {
         b1 |= 0x04;
@@ -205,7 +206,6 @@ class DstExporter {
       }
     }
 
-    // Y movement.
     if (y >= 0) {
       if (y >= 81) {
         b2 |= 0x04;
