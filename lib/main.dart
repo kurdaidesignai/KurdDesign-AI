@@ -31,10 +31,12 @@ class DesignEditorPage extends StatefulWidget {
   const DesignEditorPage({super.key});
 
   @override
-  State<DesignEditorPage> createState() => _DesignEditorPageState();
+  State<DesignEditorPage> createState() =>
+      _DesignEditorPageState();
 }
 
-class _DesignEditorPageState extends State<DesignEditorPage> {
+class _DesignEditorPageState
+    extends State<DesignEditorPage> {
   final ImagePicker picker = ImagePicker();
 
   Uint8List? selectedImage;
@@ -50,9 +52,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         source: ImageSource.gallery,
       );
 
-      if (image == null) {
-        return;
-      }
+      if (image == null) return;
 
       final bytes = await image.readAsBytes();
 
@@ -95,9 +95,13 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       return;
     }
 
-    final result = StitchEngine.imageToStitches(
+    final result =
+        StitchEngine.imageToStitches(
       selectedImage!,
       maxSize: 300,
+      density: density,
+      widthMm: width,
+      heightMm: height,
     );
 
     setState(() {
@@ -161,9 +165,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'KurdDesign-AI',
-        ),
+        title: const Text('KurdDesign-AI'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -176,9 +178,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
               Icons.design_services,
               size: 70,
             ),
-
             const SizedBox(height: 12),
-
             const Text(
               'KurdDesign-AI',
               textAlign: TextAlign.center,
@@ -187,9 +187,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 8),
-
             const Text(
               'PNG/JPG → Stitch → DST',
               textAlign: TextAlign.center,
@@ -197,7 +195,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 fontSize: 18,
               ),
             ),
-
             const SizedBox(height: 25),
 
             FilledButton.icon(
@@ -215,8 +212,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             if (selectedImage != null)
               Card(
                 child: Padding(
-                  padding:
-                      const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   child: Image.memory(
                     selectedImage!,
                     height: 230,
@@ -229,8 +225,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             Card(
               child: Padding(
-                padding:
-                    const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
@@ -243,7 +238,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                             FontWeight.bold,
                       ),
                     ),
-
                     const SizedBox(height: 15),
 
                     Text(
@@ -391,9 +385,7 @@ class StitchPainter extends CustomPainter {
     Canvas canvas,
     Size size,
   ) {
-    if (stitches.isEmpty) {
-      return;
-    }
+    if (stitches.isEmpty) return;
 
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -405,21 +397,10 @@ class StitchPainter extends CustomPainter {
     var maxY = stitches.first.y;
 
     for (final point in stitches) {
-      if (point.x < minX) {
-        minX = point.x;
-      }
-
-      if (point.x > maxX) {
-        maxX = point.x;
-      }
-
-      if (point.y < minY) {
-        minY = point.y;
-      }
-
-      if (point.y > maxY) {
-        maxY = point.y;
-      }
+      if (point.x < minX) minX = point.x;
+      if (point.x > maxX) maxX = point.x;
+      if (point.y < minY) minY = point.y;
+      if (point.y > maxY) maxY = point.y;
     }
 
     final designWidth =
@@ -443,11 +424,8 @@ class StitchPainter extends CustomPainter {
             ? scaleX
             : scaleY;
 
-    final centerX =
-        size.width / 2;
-
-    final centerY =
-        size.height / 2;
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
 
     final designCenterX =
         (minX + maxX) / 2;
@@ -474,9 +452,11 @@ class StitchPainter extends CustomPainter {
       firstY,
     );
 
-    for (var i = 1;
-        i < stitches.length;
-        i++) {
+    for (
+      var i = 1;
+      i < stitches.length;
+      i++
+    ) {
       final x =
           centerX +
           (stitches[i].x -
@@ -489,10 +469,7 @@ class StitchPainter extends CustomPainter {
                   designCenterY) *
               scale;
 
-      path.lineTo(
-        x,
-        y,
-      );
+      path.lineTo(x, y);
     }
 
     canvas.drawPath(
@@ -503,8 +480,7 @@ class StitchPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(
-    covariant StitchPainter
-        oldDelegate,
+    covariant StitchPainter oldDelegate,
   ) {
     return oldDelegate.stitches !=
         stitches;
