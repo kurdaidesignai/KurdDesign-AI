@@ -52,7 +52,10 @@ class StitchEngine {
               ((y - resized.height / 2) * scaleY).round();
 
           stitches.add(
-            StitchPoint(stitchX, stitchY),
+            StitchPoint(
+              stitchX,
+              stitchY,
+            ),
           );
         }
       }
