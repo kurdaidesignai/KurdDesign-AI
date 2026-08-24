@@ -14,42 +14,58 @@ class DstExporter {
   }) {
     final data = <int>[];
 
+    if (stitches.isEmpty) {
+      return Uint8List.fromList([
+        ..._createHeader(
+          name,
+          stitchCount: 0,
+        ),
+        0x00,
+        0x00,
+        0xF3,
+      ]);
+    }
+
+    var previousX = 0;
+    var previousY = 0;
+
     for (var i = 0; i < stitches.length; i++) {
       final point = stitches[i];
 
-      if (i == 0) {
-        data.addAll(
-          _encodeStitch(point.x, point.y, jump: true),
-        );
-      } else {
-        final previous = stitches[i - 1];
+      var dx = point.x - previousX;
+      var dy = point.y - previousY;
 
-        var dx = point.x - previous.x;
-        var dy = point.y - previous.y;
+      final isFirst = i == 0;
 
-        while (dx.abs() > 121 || dy.abs() > 121) {
-          final stepX = dx.clamp(-121, 121);
-          final stepY = dy.clamp(-121, 121);
-
-          data.addAll(
-            _encodeStitch(
-              stepX,
-              stepY,
-              jump: true,
-            ),
-          );
-
-          dx -= stepX;
-          dy -= stepY;
-        }
+      while (dx.abs() > 121 || dy.abs() > 121) {
+        final stepX = dx.clamp(-121, 121);
+        final stepY = dy.clamp(-121, 121);
 
         data.addAll(
-          _encodeStitch(dx, dy),
+          _encodeStitch(
+            stepX,
+            stepY,
+            jump: true,
+          ),
         );
+
+        dx -= stepX;
+        dy -= stepY;
       }
+
+      data.addAll(
+        _encodeStitch(
+          dx,
+          dy,
+          jump: isFirst,
+        ),
+      );
+
+      previousX = point.x;
+      previousY = point.y;
     }
 
-    // End of DST design.
+    // DST end command.
     data.addAll([
       0x00,
       0x00,
@@ -72,6 +88,7 @@ class DstExporter {
     required int stitchCount,
   }) {
     final title = name
+        .toUpperCase()
         .padRight(16)
         .substring(0, 16);
 
@@ -90,9 +107,13 @@ class DstExporter {
       'PD:******',
     ].join('\r');
 
-    final bytes = List<int>.filled(512, 0x20);
+    final bytes = List<int>.filled(
+      512,
+      0x20,
+    );
 
-    final textBytes = headerText.codeUnits;
+    final textBytes =
+        headerText.codeUnits;
 
     for (
       var i = 0;
@@ -119,22 +140,135 @@ class DstExporter {
     var b2 = 0;
     var b3 = 0x03;
 
+    // X movement.
     if (x >= 0) {
-      b1 |= 0x01;
+      if (x >= 81) {
+        b1 |= 0x04;
+        x -= 81;
+      }
+
+      if (x >= 40) {
+        b1 |= 0x01;
+        x -= 40;
+      }
+
+      if (x >= 20) {
+        b1 |= 0x08;
+        x -= 20;
+      }
+
+      if (x >= 10) {
+        b1 |= 0x10;
+        x -= 10;
+      }
+
+      if (x >= 5) {
+        b1 |= 0x20;
+        x -= 5;
+      }
+
+      if (x >= 1) {
+        b1 |= 0x40;
+        x -= 1;
+      }
     } else {
-      b1 |= 0x02;
       x = -x;
+
+      if (x >= 81) {
+        b1 |= 0x08;
+        x -= 81;
+      }
+
+      if (x >= 40) {
+        b1 |= 0x02;
+        x -= 40;
+      }
+
+      if (x >= 20) {
+        b1 |= 0x10;
+        x -= 20;
+      }
+
+      if (x >= 10) {
+        b1 |= 0x20;
+        x -= 10;
+      }
+
+      if (x >= 5) {
+        b1 |= 0x40;
+        x -= 5;
+      }
+
+      if (x >= 1) {
+        b1 |= 0x80;
+        x -= 1;
+      }
     }
 
+    // Y movement.
     if (y >= 0) {
-      b2 |= 0x01;
-    } else {
-      b2 |= 0x02;
-      y = -y;
-    }
+      if (y >= 81) {
+        b2 |= 0x04;
+        y -= 81;
+      }
 
-    b1 |= (x & 0x7F) << 2;
-    b2 |= (y & 0x7F) << 2;
+      if (y >= 40) {
+        b2 |= 0x01;
+        y -= 40;
+      }
+
+      if (y >= 20) {
+        b2 |= 0x08;
+        y -= 20;
+      }
+
+      if (y >= 10) {
+        b2 |= 0x10;
+        y -= 10;
+      }
+
+      if (y >= 5) {
+        b2 |= 0x20;
+        y -= 5;
+      }
+
+      if (y >= 1) {
+        b2 |= 0x40;
+        y -= 1;
+      }
+    } else {
+      y = -y;
+
+      if (y >= 81) {
+        b2 |= 0x08;
+        y -= 81;
+      }
+
+      if (y >= 40) {
+        b2 |= 0x02;
+        y -= 40;
+      }
+
+      if (y >= 20) {
+        b2 |= 0x10;
+        y -= 20;
+      }
+
+      if (y >= 10) {
+        b2 |= 0x20;
+        y -= 10;
+      }
+
+      if (y >= 5) {
+        b2 |= 0x40;
+        y -= 5;
+      }
+
+      if (y >= 1) {
+        b2 |= 0x80;
+        y -= 1;
+      }
+    }
 
     if (jump) {
       b3 |= 0x80;
