@@ -8,8 +8,8 @@ class StitchEngine {
     Uint8List bytes, {
     int maxSize = 300,
     double density = 3.0,
-    double widthMm = 50,
-    double heightMm = 50,
+    double widthMm = 50.0,
+    double heightMm = 50.0,
   }) {
     final image = img.decodeImage(bytes);
     if (image == null) {
@@ -22,12 +22,12 @@ class StitchEngine {
           : image.width,
     );
     final stitches = <StitchPoint>[];
-    // Density controls the distance between stitch points.
+    // Density:
+    // 1 = stitches farther apart
+    // 8 = stitches closer together
     final step = (8.0 - density)
         .clamp(1.0, 7.0)
         .round();
-    // Convert the requested embroidery size
-    // into a coordinate system suitable for DST.
     final scaleX =
         widthMm / resized.width;
     final scaleY =
@@ -49,7 +49,6 @@ class StitchEngine {
                     pixel.g +
                     pixel.b) /
                 3;
-        // Dark pixels become embroidery stitches.
         if (brightness < 160) {
           final stitchX =
               ((x - resized.width / 2) *
