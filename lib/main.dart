@@ -1,488 +1,279 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+class StitchPoint {
+  final int x;
+  final int y;
 
-import 'dst_export.dart';
-import 'stitch_engine.dart';
-
-void main() {
-  runApp(const KurdDesignAI());
+  const StitchPoint(this.x, this.y);
 }
 
-class KurdDesignAI extends StatelessWidget {
-  const KurdDesignAI({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'KurdDesign-AI',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.deepPurple,
-      ),
-      home: const DesignEditorPage(),
-    );
-  }
-}
-
-class DesignEditorPage extends StatefulWidget {
-  const DesignEditorPage({super.key});
-
-  @override
-  State<DesignEditorPage> createState() =>
-      _DesignEditorPageState();
-}
-
-class _DesignEditorPageState
-    extends State<DesignEditorPage> {
-  final ImagePicker picker = ImagePicker();
-
-  Uint8List? selectedImage;
-  List<StitchPoint> stitches = [];
-
-  double width = 50;
-  double height = 50;
-  double density = 3;
-
-  Future<void> pickImage() async {
-    try {
-      final image = await picker.pickImage(
-        source: ImageSource.gallery,
-      );
-
-      if (image == null) return;
-
-      final bytes = await image.readAsBytes();
-
-      setState(() {
-        selectedImage = bytes;
-        stitches = [];
-      });
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'وێنەکە بە سەرکەوتوویی هێنرا.',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'هەڵە لە هێنانی وێنە: $e',
-          ),
-        ),
-      );
-    }
-  }
-
-  void convertToStitches() {
-    if (selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'سەرەتا PNG یان JPG هەڵبژێرە.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    final result =
-        StitchEngine.imageToStitches(
-      selectedImage!,
-      maxSize: 300,
-      density: density,
-      widthMm: width,
-      heightMm: height,
-    );
-
-    setState(() {
-      stitches = result;
-    });
+class DstExporter {
+  static Uint8List createDst(
+    List<StitchPoint> stitches, {
+    String name = 'KURDDESIGN',
+  }) {
+    final data = <int>[];
 
     if (stitches.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'هیچ Stitch ـێک لە وێنەکە نەدۆزرایەوە.',
+      return Uint8List.fromList([
+        ..._createHeader(
+          name,
+          stitchCount: 0,
+        ),
+        0x00,
+        0x00,
+        0xF3,
+      ]);
+    }
+
+    var previousX = 0;
+    var previousY = 0;
+
+    for (var i = 0; i < stitches.length; i++) {
+      final point = stitches[i];
+
+      var dx = point.x - previousX;
+      var dy = point.y - previousY;
+
+      final isFirst = i == 0;
+
+      while (dx.abs() > 121 || dy.abs() > 121) {
+        final stepX = dx.clamp(-121, 121);
+        final stepY = dy.clamp(-121, 121);
+
+        data.addAll(
+          _encodeStitch(
+            stepX,
+            stepY,
+            jump: true,
           ),
+        );
+
+        dx -= stepX;
+        dy -= stepY;
+      }
+
+      data.addAll(
+        _encodeStitch(
+          dx,
+          dy,
+          jump: isFirst,
         ),
       );
-      return;
+
+      previousX = point.x;
+      previousY = point.y;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${stitches.length} Stitch دروست کرا.',
-        ),
-      ),
+    data.addAll([
+      0x00,
+      0x00,
+      0xF3,
+    ]);
+
+    final header = _createHeader(
+      name,
+      stitchCount: stitches.length,
     );
+
+    return Uint8List.fromList([
+      ...header,
+      ...data,
+    ]);
   }
 
-  void createDst() {
-    if (stitches.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'سەرەتا وێنەکە بکە بە Stitch.',
-          ),
-        ),
-      );
-      return;
-    }
+  static List<int> _createHeader(
+    String name, {
+    required int stitchCount,
+  }) {
+    final title = name
+        .toUpperCase()
+        .padRight(16)
+        .substring(0, 16);
 
-    final bytes = DstExporter.createDst(
-      stitches,
-      name: 'KURDDESIGN',
+    final headerText = [
+      'LA:$title',
+      'ST:${stitchCount.toString().padLeft(7, '0')}',
+      'CO:001',
+      '+X:00000',
+      '-X:00000',
+      '+Y:00000',
+      '-Y:00000',
+      'AX:+X00000',
+      'AY:+Y00000',
+      'MX:+X00000',
+      'MY:+Y00000',
+      'PD:******',
+    ].join('\r');
+
+    final bytes = List<int>.filled(
+      512,
+      0x20,
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'DST ئامادەیە — ${bytes.length} bytes',
-        ),
-      ),
-    );
-  }
-
-  void clearDesign() {
-    setState(() {
-      selectedImage = null;
-      stitches = [];
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('KurdDesign-AI'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.stretch,
-          children: [
-            const Icon(
-              Icons.design_services,
-              size: 70,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'KurdDesign-AI',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'PNG/JPG → Stitch → DST',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 25),
-
-            FilledButton.icon(
-              onPressed: pickImage,
-              icon: const Icon(
-                Icons.photo_library,
-              ),
-              label: const Text(
-                'هێنانی وێنەی PNG / JPG',
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            if (selectedImage != null)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Image.memory(
-                    selectedImage!,
-                    height: 230,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 20),
-
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'قەبارەی نەخشە',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight:
-                            FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    Text(
-                      'پانی: ${width.round()} mm',
-                    ),
-
-                    Slider(
-                      value: width,
-                      min: 10,
-                      max: 200,
-                      divisions: 38,
-                      onChanged: (value) {
-                        setState(() {
-                          width = value;
-                        });
-                      },
-                    ),
-
-                    Text(
-                      'بەرزی: ${height.round()} mm',
-                    ),
-
-                    Slider(
-                      value: height,
-                      min: 10,
-                      max: 200,
-                      divisions: 38,
-                      onChanged: (value) {
-                        setState(() {
-                          height = value;
-                        });
-                      },
-                    ),
-
-                    Text(
-                      'Stitch Density: '
-                      '${density.toStringAsFixed(1)}',
-                    ),
-
-                    Slider(
-                      value: density,
-                      min: 1,
-                      max: 8,
-                      divisions: 14,
-                      onChanged: (value) {
-                        setState(() {
-                          density = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            Card(
-              child: SizedBox(
-                height: 280,
-                child: Center(
-                  child: stitches.isEmpty
-                      ? const Text(
-                          'Stitch Preview\n'
-                          'وێنەکە بکە بە Stitch',
-                          textAlign:
-                              TextAlign.center,
-                        )
-                      : CustomPaint(
-                          size: const Size(
-                            double.infinity,
-                            250,
-                          ),
-                          painter:
-                              StitchPainter(
-                            stitches,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            FilledButton.icon(
-              onPressed: convertToStitches,
-              icon: const Icon(
-                Icons.auto_awesome,
-              ),
-              label: const Text(
-                'گۆڕینی وێنە بۆ Stitch',
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            FilledButton.icon(
-              onPressed: createDst,
-              icon: const Icon(
-                Icons.download,
-              ),
-              label: const Text(
-                'دروستکردنی DST',
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            OutlinedButton.icon(
-              onPressed: clearDesign,
-              icon: const Icon(
-                Icons.delete_outline,
-              ),
-              label: const Text(
-                'پاککردنەوە',
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            if (stitches.isNotEmpty)
-              Center(
-                child: Text(
-                  '${stitches.length} Stitch',
-                  style: const TextStyle(
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class StitchPainter extends CustomPainter {
-  final List<StitchPoint> stitches;
-
-  StitchPainter(this.stitches);
-
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    if (stitches.isEmpty) return;
-
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    var minX = stitches.first.x;
-    var maxX = stitches.first.x;
-    var minY = stitches.first.y;
-    var maxY = stitches.first.y;
-
-    for (final point in stitches) {
-      if (point.x < minX) minX = point.x;
-      if (point.x > maxX) maxX = point.x;
-      if (point.y < minY) minY = point.y;
-      if (point.y > maxY) maxY = point.y;
-    }
-
-    final designWidth =
-        (maxX - minX).toDouble();
-
-    final designHeight =
-        (maxY - minY).toDouble();
-
-    final scaleX = designWidth == 0
-        ? 1.0
-        : (size.width - 20) /
-            designWidth;
-
-    final scaleY = designHeight == 0
-        ? 1.0
-        : (size.height - 20) /
-            designHeight;
-
-    final scale =
-        scaleX < scaleY
-            ? scaleX
-            : scaleY;
-
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-
-    final designCenterX =
-        (minX + maxX) / 2;
-
-    final designCenterY =
-        (minY + maxY) / 2;
-
-    final path = Path();
-
-    final firstX =
-        centerX +
-        (stitches.first.x -
-                designCenterX) *
-            scale;
-
-    final firstY =
-        centerY +
-        (stitches.first.y -
-                designCenterY) *
-            scale;
-
-    path.moveTo(
-      firstX,
-      firstY,
-    );
+    final textBytes = headerText.codeUnits;
 
     for (
-      var i = 1;
-      i < stitches.length;
+      var i = 0;
+      i < textBytes.length && i < 511;
       i++
     ) {
-      final x =
-          centerX +
-          (stitches[i].x -
-                  designCenterX) *
-              scale;
-
-      final y =
-          centerY +
-          (stitches[i].y -
-                  designCenterY) *
-              scale;
-
-      path.lineTo(x, y);
+      bytes[i] = textBytes[i];
     }
 
-    canvas.drawPath(
-      path,
-      paint,
-    );
+    bytes[511] = 0x1A;
+
+    return bytes;
   }
 
-  @override
-  bool shouldRepaint(
-    covariant StitchPainter oldDelegate,
-  ) {
-    return oldDelegate.stitches !=
-        stitches;
+  static List<int> _encodeStitch(
+    int dx,
+    int dy, {
+    bool jump = false,
+  }) {
+    var x = dx;
+    var y = dy;
+
+    var b1 = 0;
+    var b2 = 0;
+    var b3 = 0x03;
+
+    if (x >= 0) {
+      if (x >= 81) {
+        b1 |= 0x04;
+        x -= 81;
+      }
+
+      if (x >= 40) {
+        b1 |= 0x01;
+        x -= 40;
+      }
+
+      if (x >= 20) {
+        b1 |= 0x08;
+        x -= 20;
+      }
+
+      if (x >= 10) {
+        b1 |= 0x10;
+        x -= 10;
+      }
+
+      if (x >= 5) {
+        b1 |= 0x20;
+        x -= 5;
+      }
+
+      if (x >= 1) {
+        b1 |= 0x40;
+        x -= 1;
+      }
+    } else {
+      x = -x;
+
+      if (x >= 81) {
+        b1 |= 0x08;
+        x -= 81;
+      }
+
+      if (x >= 40) {
+        b1 |= 0x02;
+        x -= 40;
+      }
+
+      if (x >= 20) {
+        b1 |= 0x10;
+        x -= 20;
+      }
+
+      if (x >= 10) {
+        b1 |= 0x20;
+        x -= 10;
+      }
+
+      if (x >= 5) {
+        b1 |= 0x40;
+        x -= 5;
+      }
+
+      if (x >= 1) {
+        b1 |= 0x80;
+        x -= 1;
+      }
+    }
+
+    if (y >= 0) {
+      if (y >= 81) {
+        b2 |= 0x04;
+        y -= 81;
+      }
+
+      if (y >= 40) {
+        b2 |= 0x01;
+        y -= 40;
+      }
+
+      if (y >= 20) {
+        b2 |= 0x08;
+        y -= 20;
+      }
+
+      if (y >= 10) {
+        b2 |= 0x10;
+        y -= 10;
+      }
+
+      if (y >= 5) {
+        b2 |= 0x20;
+        y -= 5;
+      }
+
+      if (y >= 1) {
+        b2 |= 0x40;
+        y -= 1;
+      }
+    } else {
+      y = -y;
+
+      if (y >= 81) {
+        b2 |= 0x08;
+        y -= 81;
+      }
+
+      if (y >= 40) {
+        b2 |= 0x02;
+        y -= 40;
+      }
+
+      if (y >= 20) {
+        b2 |= 0x10;
+        y -= 20;
+      }
+
+      if (y >= 10) {
+        b2 |= 0x20;
+        y -= 10;
+      }
+
+      if (y >= 5) {
+        b2 |= 0x40;
+        y -= 5;
+      }
+
+      if (y >= 1) {
+        b2 |= 0x80;
+        y -= 1;
+      }
+    }
+
+    if (jump) {
+      b3 |= 0x80;
+    }
+
+    return [
+      b1 & 0xFF,
+      b2 & 0xFF,
+      b3 & 0xFF,
+    ];
   }
 }
