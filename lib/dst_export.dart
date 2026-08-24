@@ -37,13 +37,9 @@ class DstExporter {
 
       final isFirst = i == 0;
 
-      while (dx.abs() > 121 ||
-          dy.abs() > 121) {
-        final stepX =
-            dx.clamp(-121, 121);
-
-        final stepY =
-            dy.clamp(-121, 121);
+      while (dx.abs() > 121 || dy.abs() > 121) {
+        final stepX = dx.clamp(-121, 121);
+        final stepY = dy.clamp(-121, 121);
 
         data.addAll(
           _encodeStitch(
@@ -110,16 +106,16 @@ class DstExporter {
       'PD:******',
     ].join('\r');
 
-    final bytes =
-        List<int>.filled(512, 0x20);
+    final bytes = List<int>.filled(
+      512,
+      0x20,
+    );
 
-    final textBytes =
-        headerText.codeUnits;
+    final textBytes = headerText.codeUnits;
 
     for (
       var i = 0;
-      i < textBytes.length &&
-          i < 511;
+      i < textBytes.length && i < 511;
       i++
     ) {
       bytes[i] = textBytes[i];
