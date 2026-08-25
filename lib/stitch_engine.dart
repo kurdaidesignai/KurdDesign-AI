@@ -41,8 +41,8 @@ class StitchEngine {
         if (brightness < 160) {
           stitches.add(
             StitchPoint(
-              x: (x * scaleX).round(),
-              y: (y * scaleY).round(),
+              (x * scaleX).round(),
+              (y * scaleY).round(),
             ),
           );
         }
