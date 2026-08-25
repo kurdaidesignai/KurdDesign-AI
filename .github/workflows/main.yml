@@ -33,3 +33,15 @@ jobs:
 
       - name: Build iOS
         run: flutter build ios --release --no-codesign
+
+      - name: Create iOS app archive
+        run: |
+          cd build/ios/iphoneos
+          zip -r KurdDesign-AI-iOS.zip Runner.app
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KurdDesign-AI-iOS
+          path: build/ios/iphoneos/KurdDesign-AI-iOS.zip
+          if-no-files-found: error
