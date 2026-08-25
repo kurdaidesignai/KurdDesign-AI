@@ -12,19 +12,16 @@ class DstExporter {
     List<StitchPoint> stitches, {
     String name = 'KURDDESIGN',
   }) {
-    final data = <int>[];
-
     if (stitches.isEmpty) {
       return Uint8List.fromList([
-        ..._createHeader(
-          name,
-          stitchCount: 0,
-        ),
+        ..._createHeader(name, stitchCount: 0),
         0x00,
         0x00,
         0xF3,
       ]);
     }
+
+    final data = <int>[];
 
     var previousX = 0;
     var previousY = 0;
@@ -35,36 +32,46 @@ class DstExporter {
       var dx = point.x - previousX;
       var dy = point.y - previousY;
 
-      final isFirst = i == 0;
-
-      while (dx.abs() > 121 || dy.abs() > 121) {
-        final stepX = dx.clamp(-121, 121);
-        final stepY = dy.clamp(-121, 121);
-
+      // The first point is a jump to the design.
+      if (i == 0) {
         data.addAll(
           _encodeStitch(
-            stepX,
-            stepY,
+            dx,
+            dy,
             jump: true,
           ),
         );
+      } else {
+        // Split large movements into valid DST movements.
+        while (dx.abs() > 121 || dy.abs() > 121) {
+          final stepX = dx.clamp(-121, 121);
+          final stepY = dy.clamp(-121, 121);
 
-        dx -= stepX;
-        dy -= stepY;
+          data.addAll(
+            _encodeStitch(
+              stepX,
+              stepY,
+              jump: true,
+            ),
+          );
+
+          dx -= stepX;
+          dy -= stepY;
+        }
+
+        data.addAll(
+          _encodeStitch(
+            dx,
+            dy,
+          ),
+        );
       }
-
-      data.addAll(
-        _encodeStitch(
-          dx,
-          dy,
-          jump: isFirst,
-        ),
-      );
 
       previousX = point.x;
       previousY = point.y;
     }
 
+    // DST end-of-design command.
     data.addAll([
       0x00,
       0x00,
@@ -86,8 +93,12 @@ class DstExporter {
     String name, {
     required int stitchCount,
   }) {
-    final title = name
+    final cleanName = name
         .toUpperCase()
+        .replaceAll('\r', '')
+        .replaceAll('\n', '');
+
+    final title = cleanName
         .padRight(16)
         .substring(0, 16);
 
@@ -138,6 +149,7 @@ class DstExporter {
     var b2 = 0;
     var b3 = 0x03;
 
+    // X positive / negative encoding.
     if (x >= 0) {
       if (x >= 81) {
         b1 |= 0x04;
@@ -202,6 +214,7 @@ class DstExporter {
       }
     }
 
+    // Y positive / negative encoding.
     if (y >= 0) {
       if (y >= 81) {
         b2 |= 0x04;
@@ -266,6 +279,7 @@ class DstExporter {
       }
     }
 
+    // Jump flag.
     if (jump) {
       b3 |= 0x80;
     }
