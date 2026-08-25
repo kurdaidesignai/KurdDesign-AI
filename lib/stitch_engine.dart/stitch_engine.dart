@@ -15,46 +15,34 @@ class StitchEngine {
     final image = img.decodeImage(bytes);
 
     if (image == null) {
-      return [];
+      throw Exception('Unable to decode image');
     }
 
     final resized = img.copyResize(
       image,
-      width: image.width > maxSize
-          ? maxSize
-          : image.width,
+      width: image.width > maxSize ? maxSize : image.width,
+      height: image.height > maxSize ? maxSize : image.height,
     );
 
-    final stitches = <StitchPoint>[];
+    final List<StitchPoint> stitches = [];
 
-    final step = (8.0 - density)
-        .clamp(1.0, 7.0)
-        .round();
+    final int step = (8.0 - density).clamp(1.0, 7.0).round();
 
-    final scaleX =
-        widthMm / resized.width;
+    final double scaleX = widthMm / resized.width;
+    final double scaleY = heightMm / resized.height;
 
-    final scaleY =
-        heightMm / resized.height;
-
-    for (var y = 0; y < resized.height; y += step) {
-      for (var x = 0; x < resized.width; x += step) {
+    for (int y = 0; y < resized.height; y += step) {
+      for (int x = 0; x < resized.width; x += step) {
         final pixel = resized.getPixel(x, y);
 
-        final brightness =
-            (pixel.r + pixel.g + pixel.b) / 3;
+        final double brightness =
+            (pixel.r + pixel.g + pixel.b) / 3.0;
 
         if (brightness < 160) {
-          final stitchX =
-              ((x - resized.width / 2) * scaleX).round();
-
-          final stitchY =
-              ((y - resized.height / 2) * scaleY).round();
-
           stitches.add(
             StitchPoint(
-              stitchX,
-              stitchY,
+              x: (x * scaleX).round(),
+              y: (y * scaleY).round(),
             ),
           );
         }
