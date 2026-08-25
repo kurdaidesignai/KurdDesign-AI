@@ -45,23 +45,28 @@ class _DesignEditorPageState
   double width = 50;
   double height = 50;
   double density = 3;
+  double threshold = 180;
+
+  bool isConverting = false;
+  bool isExporting = false;
 
   Future<void> pickImage() async {
     try {
       final image = await picker.pickImage(
         source: ImageSource.gallery,
+        imageQuality: 100,
       );
 
       if (image == null) return;
 
       final bytes = await image.readAsBytes();
 
+      if (!mounted) return;
+
       setState(() {
         selectedImage = bytes;
         stitches = [];
       });
-
-      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -83,7 +88,7 @@ class _DesignEditorPageState
     }
   }
 
-  void convertToStitches() {
+  Future<void> convertToStitches() async {
     if (selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -95,40 +100,63 @@ class _DesignEditorPageState
       return;
     }
 
-    final result =
-        StitchEngine.imageToStitches(
-      selectedImage!,
-      maxSize: 300,
-      density: density,
-      widthMm: width,
-      heightMm: height,
-    );
-
     setState(() {
-      stitches = result;
+      isConverting = true;
     });
 
-    if (stitches.isEmpty) {
+    try {
+      final result = StitchEngine.imageToStitches(
+        selectedImage!,
+        maxSize: 400,
+        density: density,
+        widthMm: width,
+        heightMm: height,
+        threshold: threshold.round(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        stitches = result;
+        isConverting = false;
+      });
+
+      if (stitches.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'هیچ Stitch ـێک نەدۆزرایەوە. Threshold زیاد بکە.',
+            ),
+          ),
+        );
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'هیچ Stitch ـێک لە وێنەکە نەدۆزرایەوە.',
+            '${stitches.length} Stitch دروست کرا.',
           ),
         ),
       );
-      return;
-    }
+    } catch (e) {
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${stitches.length} Stitch دروست کرا.',
+      setState(() {
+        isConverting = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'هەڵە لە گۆڕینی وێنە: $e',
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
-  void createDst() {
+  Future<void> createDst() async {
     if (stitches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -140,18 +168,44 @@ class _DesignEditorPageState
       return;
     }
 
-    final bytes = DstExporter.createDst(
-      stitches,
-      name: 'KURDDESIGN',
-    );
+    setState(() {
+      isExporting = true;
+    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'DST ئامادەیە — ${bytes.length} bytes',
+    try {
+      final bytes = DstExporter.createDst(
+        stitches,
+        name: 'KURDDESIGN',
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        isExporting = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'DST ئامادەیە — ${bytes.length} bytes',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isExporting = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'هەڵە لە دروستکردنی DST: $e',
+          ),
+        ),
+      );
+    }
   }
 
   void clearDesign() {
@@ -178,7 +232,9 @@ class _DesignEditorPageState
               Icons.design_services,
               size: 70,
             ),
+
             const SizedBox(height: 12),
+
             const Text(
               'KurdDesign-AI',
               textAlign: TextAlign.center,
@@ -187,17 +243,24 @@ class _DesignEditorPageState
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 8),
+
             const Text(
               'PNG/JPG → Stitch → DST',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 18,
+              ),
             ),
+
             const SizedBox(height: 25),
 
             FilledButton.icon(
               onPressed: pickImage,
-              icon: const Icon(Icons.photo_library),
+              icon: const Icon(
+                Icons.photo_library,
+              ),
               label: const Text(
                 'هێنانی وێنەی PNG / JPG',
               ),
@@ -284,6 +347,25 @@ class _DesignEditorPageState
                         });
                       },
                     ),
+
+                    const SizedBox(height: 10),
+
+                    Text(
+                      'Image Threshold: '
+                      '${threshold.round()}',
+                    ),
+
+                    Slider(
+                      value: threshold,
+                      min: 50,
+                      max: 240,
+                      divisions: 38,
+                      onChanged: (value) {
+                        setState(() {
+                          threshold = value;
+                        });
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -317,20 +399,52 @@ class _DesignEditorPageState
             const SizedBox(height: 20),
 
             FilledButton.icon(
-              onPressed: convertToStitches,
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text(
-                'گۆڕینی وێنە بۆ Stitch',
+              onPressed:
+                  isConverting
+                      ? null
+                      : convertToStitches,
+              icon: isConverting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.auto_awesome,
+                    ),
+              label: Text(
+                isConverting
+                    ? 'لە کاردایە...'
+                    : 'گۆڕینی وێنە بۆ Stitch',
               ),
             ),
 
             const SizedBox(height: 12),
 
             FilledButton.icon(
-              onPressed: createDst,
-              icon: const Icon(Icons.download),
-              label: const Text(
-                'دروستکردنی DST',
+              onPressed:
+                  isExporting
+                      ? null
+                      : createDst,
+              icon: isExporting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.download,
+                    ),
+              label: Text(
+                isExporting
+                    ? 'ئامادە دەکرێت...'
+                    : 'دروستکردنی DST',
               ),
             ),
 
@@ -338,7 +452,9 @@ class _DesignEditorPageState
 
             OutlinedButton.icon(
               onPressed: clearDesign,
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(
+                Icons.delete_outline,
+              ),
               label: const Text(
                 'پاککردنەوە',
               ),
@@ -444,7 +560,10 @@ class StitchPainter extends CustomPainter {
       path.lineTo(x, y);
     }
 
-    canvas.drawPath(path, paint);
+    canvas.drawPath(
+      path,
+      paint,
+    );
   }
 
   @override
