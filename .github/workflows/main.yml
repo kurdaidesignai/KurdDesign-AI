@@ -34,14 +34,16 @@ jobs:
       - name: Build iOS
         run: flutter build ios --release --no-codesign
 
-      - name: Create iOS app archive
+      - name: Create unsigned IPA
         run: |
-          cd build/ios/iphoneos
-          zip -r KurdDesign-AI-iOS.zip Runner.app
+          mkdir -p build/ios/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -r KurdDesign-AI.ipa Payload
 
-      - name: Upload iOS artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: KurdDesign-AI-iOS
-          path: build/ios/iphoneos/KurdDesign-AI-iOS.zip
+          name: KurdDesign-AI-IPA
+          path: build/ios/ipa/KurdDesign-AI.ipa
           if-no-files-found: error
