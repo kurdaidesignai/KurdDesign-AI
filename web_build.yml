@@ -1,4 +1,4 @@
-name: Flutter iOS Build
+name: Flutter Web Build
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -22,8 +22,8 @@ jobs:
         with:
           channel: stable
 
-      - name: Create iOS platform
-        run: flutter create . --platforms ios
+      - name: Enable Flutter Web
+        run: flutter config --enable-web
 
       - name: Get dependencies
         run: flutter pub get
@@ -31,19 +31,12 @@ jobs:
       - name: Analyze lib
         run: flutter analyze lib
 
-      - name: Build iOS
-        run: flutter build ios --release --no-codesign
+      - name: Build Flutter Web
+        run: flutter build web --release
 
-      - name: Create unsigned IPA
-        run: |
-          mkdir -p build/ios/ipa/Payload
-          cp -R build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
-          cd build/ios/ipa
-          zip -r KurdDesign-AI.ipa Payload
-
-      - name: Upload IPA
+      - name: Upload Web Build
         uses: actions/upload-artifact@v4
         with:
-          name: KurdDesign-AI-IPA
-          path: build/ios/ipa/KurdDesign-AI.ipa
+          name: KurdDesign-AI-Web
+          path: build/web
           if-no-files-found: error
