@@ -19,20 +19,16 @@ class StitchEngine {
       throw Exception('Unable to decode image');
     }
 
-    // Keep the original aspect ratio while resizing.
+    // Resize while keeping the original aspect ratio.
     final resized = img.copyResize(
       image,
-      width: image.width >= image.height
-          ? maxSize
-          : null,
-      height: image.height > image.width
-          ? maxSize
-          : null,
+      width: image.width >= image.height ? maxSize : null,
+      height: image.height > image.width ? maxSize : null,
     );
 
     final stitches = <StitchPoint>[];
 
-    // Higher density = smaller distance between stitches.
+    // Higher density = stitches closer together.
     final step = (9.0 - density)
         .clamp(1.0, 8.0)
         .round();
@@ -47,6 +43,7 @@ class StitchEngine {
         final brightness =
             (pixel.r + pixel.g + pixel.b) / 3.0;
 
+        // Dark pixels become embroidery stitches.
         if (brightness < threshold) {
           stitches.add(
             StitchPoint(
@@ -68,7 +65,9 @@ class StitchEngine {
       return points;
     }
 
-    final result = <StitchPoint>[points.first];
+    final result = <StitchPoint>[
+      points.first,
+    ];
 
     for (var i = 1; i < points.length; i++) {
       final previous = result.last;
