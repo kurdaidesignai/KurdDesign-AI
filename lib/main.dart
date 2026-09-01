@@ -36,8 +36,7 @@ class DesignEditorPage extends StatefulWidget {
       _DesignEditorPageState();
 }
 
-class _DesignEditorPageState
-    extends State<DesignEditorPage> {
+class _DesignEditorPageState extends State<DesignEditorPage> {
   final ImagePicker picker = ImagePicker();
 
   Uint8List? selectedImage;
@@ -71,9 +70,7 @@ class _DesignEditorPageState
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'وێنەکە بە سەرکەوتوویی هێنرا.',
-          ),
+          content: Text('وێنەکە بە سەرکەوتوویی هێنرا.'),
         ),
       );
     } catch (e) {
@@ -81,9 +78,7 @@ class _DesignEditorPageState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'هەڵە لە هێنانی وێنە: $e',
-          ),
+          content: Text('هەڵە لە هێنانی وێنە: $e'),
         ),
       );
     }
@@ -93,9 +88,7 @@ class _DesignEditorPageState
     if (selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'سەرەتا PNG یان JPG هەڵبژێرە.',
-          ),
+          content: Text('سەرەتا PNG یان JPG هەڵبژێرە.'),
         ),
       );
       return;
@@ -149,9 +142,7 @@ class _DesignEditorPageState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'هەڵە لە گۆڕینی وێنە: $e',
-          ),
+          content: Text('هەڵە لە گۆڕینی وێنە: $e'),
         ),
       );
     }
@@ -161,9 +152,7 @@ class _DesignEditorPageState
     if (stitches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'سەرەتا وێنەکە بکە بە Stitch.',
-          ),
+          content: Text('سەرەتا وێنەکە بکە بە Stitch.'),
         ),
       );
       return;
@@ -207,9 +196,7 @@ class _DesignEditorPageState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'هەڵە لە دروستکردنی DST: $e',
-          ),
+          content: Text('هەڵە لە دروستکردنی DST: $e'),
         ),
       );
     }
@@ -232,8 +219,7 @@ class _DesignEditorPageState
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Icon(
               Icons.design_services,
@@ -265,9 +251,7 @@ class _DesignEditorPageState
 
             FilledButton.icon(
               onPressed: pickImage,
-              icon: const Icon(
-                Icons.photo_library,
-              ),
+              icon: const Icon(Icons.photo_library),
               label: const Text(
                 'هێنانی وێنەی PNG / JPG',
               ),
@@ -293,8 +277,7 @@ class _DesignEditorPageState
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'قەبارەی نەخشە',
@@ -395,9 +378,7 @@ class _DesignEditorPageState
                             double.infinity,
                             250,
                           ),
-                          painter: StitchPainter(
-                            stitches,
-                          ),
+                          painter: StitchPainter(stitches),
                         ),
                 ),
               ),
@@ -407,21 +388,16 @@ class _DesignEditorPageState
 
             FilledButton.icon(
               onPressed:
-                  isConverting
-                      ? null
-                      : convertToStitches,
+                  isConverting ? null : convertToStitches,
               icon: isConverting
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child:
-                          CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
-                  : const Icon(
-                      Icons.auto_awesome,
-                    ),
+                  : const Icon(Icons.auto_awesome),
               label: Text(
                 isConverting
                     ? 'لە کاردایە...'
@@ -433,21 +409,16 @@ class _DesignEditorPageState
 
             FilledButton.icon(
               onPressed:
-                  isExporting
-                      ? null
-                      : createDst,
+                  isExporting ? null : createDst,
               icon: isExporting
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child:
-                          CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
-                  : const Icon(
-                      Icons.download,
-                    ),
+                  : const Icon(Icons.download),
               label: Text(
                 isExporting
                     ? 'ئامادە دەکرێت...'
@@ -459,12 +430,8 @@ class _DesignEditorPageState
 
             OutlinedButton.icon(
               onPressed: clearDesign,
-              icon: const Icon(
-                Icons.delete_outline,
-              ),
-              label: const Text(
-                'پاککردنەوە',
-              ),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('پاککردنەوە'),
             ),
 
             const SizedBox(height: 20),
@@ -491,10 +458,7 @@ class StitchPainter extends CustomPainter {
   StitchPainter(this.stitches);
 
   @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
+  void paint(Canvas canvas, Size size) {
     if (stitches.isEmpty) return;
 
     final paint = Paint()
@@ -543,23 +507,19 @@ class StitchPainter extends CustomPainter {
 
     path.moveTo(
       centerX +
-          (stitches.first.x - designCenterX) *
-              scale,
+          (stitches.first.x - designCenterX) * scale,
       centerY +
-          (stitches.first.y - designCenterY) *
-              scale,
+          (stitches.first.y - designCenterY) * scale,
     );
 
     for (var i = 1; i < stitches.length; i++) {
       final x =
           centerX +
-          (stitches[i].x - designCenterX) *
-              scale;
+          (stitches[i].x - designCenterX) * scale;
 
       final y =
           centerY +
-          (stitches[i].y - designCenterY) *
-              scale;
+          (stitches[i].y - designCenterY) * scale;
 
       path.lineTo(x, y);
     }
