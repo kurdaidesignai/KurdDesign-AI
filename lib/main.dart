@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'dst_export.dart';
 import 'stitch_engine.dart';
@@ -178,17 +179,23 @@ class _DesignEditorPageState
         name: 'KURDDESIGN',
       );
 
+      final file = XFile.fromData(
+        bytes,
+        name: 'KURDDESIGN.dst',
+        mimeType: 'application/octet-stream',
+      );
+
       if (!mounted) return;
 
       setState(() {
         isExporting = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'DST ئامادەیە — ${bytes.length} bytes',
-          ),
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [file],
+          subject: 'KurdDesign-AI DST',
+          text: 'KurdDesign-AI embroidery design',
         ),
       );
     } catch (e) {
@@ -444,7 +451,7 @@ class _DesignEditorPageState
               label: Text(
                 isExporting
                     ? 'ئامادە دەکرێت...'
-                    : 'دروستکردنی DST',
+                    : 'دروستکردن و ناردنی DST',
               ),
             ),
 
@@ -534,17 +541,14 @@ class StitchPainter extends CustomPainter {
 
     final path = Path();
 
-    final firstX =
-        centerX +
-        (stitches.first.x - designCenterX) *
-            scale;
-
-    final firstY =
-        centerY +
-        (stitches.first.y - designCenterY) *
-            scale;
-
-    path.moveTo(firstX, firstY);
+    path.moveTo(
+      centerX +
+          (stitches.first.x - designCenterX) *
+              scale,
+      centerY +
+          (stitches.first.y - designCenterY) *
+              scale,
+    );
 
     for (var i = 1; i < stitches.length; i++) {
       final x =
@@ -560,10 +564,7 @@ class StitchPainter extends CustomPainter {
       path.lineTo(x, y);
     }
 
-    canvas.drawPath(
-      path,
-      paint,
-    );
+    canvas.drawPath(path, paint);
   }
 
   @override
