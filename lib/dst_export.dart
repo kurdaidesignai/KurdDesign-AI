@@ -12,66 +12,51 @@ class DstExporter {
     List<StitchPoint> stitches, {
     String name = 'KURDDESIGN',
   }) {
-    if (stitches.isEmpty) {
-      return Uint8List.fromList([
-        ..._createHeader(name, stitchCount: 0),
-        0x00,
-        0x00,
-        0xF3,
-      ]);
-    }
-
     final data = <int>[];
-
-    var previousX = 0;
-    var previousY = 0;
 
     for (var i = 0; i < stitches.length; i++) {
       final point = stitches[i];
 
+      final previousX =
+          i == 0 ? 0 : stitches[i - 1].x;
+      final previousY =
+          i == 0 ? 0 : stitches[i - 1].y;
+
       var dx = point.x - previousX;
       var dy = point.y - previousY;
 
-      // The first point is a jump to the design.
       if (i == 0) {
         data.addAll(
-          _encodeStitch(
+          _encodeMove(
             dx,
             dy,
             jump: true,
           ),
         );
-      } else {
-        // Split large movements into valid DST movements.
-        while (dx.abs() > 121 || dy.abs() > 121) {
-          final stepX = dx.clamp(-121, 121);
-          final stepY = dy.clamp(-121, 121);
-
-          data.addAll(
-            _encodeStitch(
-              stepX,
-              stepY,
-              jump: true,
-            ),
-          );
-
-          dx -= stepX;
-          dy -= stepY;
-        }
-
-        data.addAll(
-          _encodeStitch(
-            dx,
-            dy,
-          ),
-        );
+        continue;
       }
 
-      previousX = point.x;
-      previousY = point.y;
+      while (dx.abs() > 121 || dy.abs() > 121) {
+        final stepX = dx.clamp(-121, 121);
+        final stepY = dy.clamp(-121, 121);
+
+        data.addAll(
+          _encodeMove(
+            stepX,
+            stepY,
+            jump: true,
+          ),
+        );
+
+        dx -= stepX;
+        dy -= stepY;
+      }
+
+      data.addAll(
+        _encodeMove(dx, dy),
+      );
     }
 
-    // DST end-of-design command.
     data.addAll([
       0x00,
       0x00,
@@ -80,7 +65,7 @@ class DstExporter {
 
     final header = _createHeader(
       name,
-      stitchCount: stitches.length,
+      stitches.length,
     );
 
     return Uint8List.fromList([
@@ -90,9 +75,9 @@ class DstExporter {
   }
 
   static List<int> _createHeader(
-    String name, {
-    required int stitchCount,
-  }) {
+    String name,
+    int stitchCount,
+  ) {
     final cleanName = name
         .toUpperCase()
         .replaceAll('\r', '')
@@ -137,19 +122,18 @@ class DstExporter {
     return bytes;
   }
 
-  static List<int> _encodeStitch(
+  static List<int> _encodeMove(
     int dx,
     int dy, {
     bool jump = false,
   }) {
-    var x = dx;
-    var y = dy;
+    var x = dx.clamp(-121, 121);
+    var y = dy.clamp(-121, 121);
 
     var b1 = 0;
     var b2 = 0;
     var b3 = 0x03;
 
-    // X positive / negative encoding.
     if (x >= 0) {
       if (x >= 81) {
         b1 |= 0x04;
@@ -214,7 +198,6 @@ class DstExporter {
       }
     }
 
-    // Y positive / negative encoding.
     if (y >= 0) {
       if (y >= 81) {
         b2 |= 0x04;
@@ -279,7 +262,6 @@ class DstExporter {
       }
     }
 
-    // Jump flag.
     if (jump) {
       b3 |= 0x80;
     }
