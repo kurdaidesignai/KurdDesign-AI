@@ -26,6 +26,9 @@ jobs:
       - name: Enable Flutter Web
         run: flutter config --enable-web
 
+      - name: Create Flutter Web files
+        run: flutter create . --platforms web
+
       - name: Get dependencies
         run: flutter pub get
 
