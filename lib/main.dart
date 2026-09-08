@@ -70,7 +70,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('وێنەکە بە سەرکەوتوویی هێنرا.'),
+          content: Text(
+            'وێنەکە بە سەرکەوتوویی هێنرا.',
+          ),
         ),
       );
     } catch (e) {
@@ -78,7 +80,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('هەڵە لە هێنانی وێنە: $e'),
+          content: Text(
+            'هەڵە لە هێنانی وێنە: $e',
+          ),
         ),
       );
     }
@@ -88,7 +92,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     if (selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('سەرەتا PNG یان JPG هەڵبژێرە.'),
+          content: Text(
+            'سەرەتا PNG یان JPG هەڵبژێرە.',
+          ),
         ),
       );
       return;
@@ -142,7 +148,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('هەڵە لە گۆڕینی وێنە: $e'),
+          content: Text(
+            'هەڵە لە گۆڕینی وێنە: $e',
+          ),
         ),
       );
     }
@@ -152,7 +160,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     if (stitches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('سەرەتا وێنەکە بکە بە Stitch.'),
+          content: Text(
+            'سەرەتا وێنەکە بکە بە Stitch.',
+          ),
         ),
       );
       return;
@@ -447,7 +457,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
               icon: const Icon(
                 Icons.delete_outline,
               ),
-              label: const Text('پاککردنەوە'),
+              label: const Text(
+                'پاککردنەوە',
+              ),
             ),
 
             const SizedBox(height: 20),
@@ -477,47 +489,42 @@ class StitchPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (stitches.isEmpty) return;
 
+    // Find the design boundaries.
     var minX = stitches.first.x.toDouble();
     var maxX = stitches.first.x.toDouble();
     var minY = stitches.first.y.toDouble();
     var maxY = stitches.first.y.toDouble();
 
-    for (final point in stitches) {
-      if (point.x < minX) {
-        minX = point.x.toDouble();
-      }
+    for (final stitch in stitches) {
+      final x = stitch.x.toDouble();
+      final y = stitch.y.toDouble();
 
-      if (point.x > maxX) {
-        maxX = point.x.toDouble();
-      }
-
-      if (point.y < minY) {
-        minY = point.y.toDouble();
-      }
-
-      if (point.y > maxY) {
-        maxY = point.y.toDouble();
-      }
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
     }
 
     final designWidth = maxX - minX;
     final designHeight = maxY - minY;
 
+    if (designWidth <= 0 || designHeight <= 0) {
+      return;
+    }
+
     const padding = 25.0;
 
     final availableWidth =
-        size.width - (padding * 2);
+        size.width - padding * 2;
 
     final availableHeight =
-        size.height - (padding * 2);
+        size.height - padding * 2;
 
-    final scaleX = designWidth == 0
-        ? 1.0
-        : availableWidth / designWidth;
+    final scaleX =
+        availableWidth / designWidth;
 
-    final scaleY = designHeight == 0
-        ? 1.0
-        : availableHeight / designHeight;
+    final scaleY =
+        availableHeight / designHeight;
 
     final scale =
         scaleX < scaleY ? scaleX : scaleY;
@@ -531,43 +538,58 @@ class StitchPainter extends CustomPainter {
     final designCenterY =
         (minY + maxY) / 2;
 
-    // Thread line.
-    final threadPaint = Paint()
+    // Embroidery stitch paint.
+    final stitchPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
+      ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
 
-    // Stitch dot.
-    final stitchPaint = Paint()
+    // Stitch center point.
+    final pointPaint = Paint()
       ..style = PaintingStyle.fill;
 
-    // Draw every stitch separately.
-    for (var i = 1; i < stitches.length; i++) {
-      final previous = stitches[i - 1];
-      final current = stitches[i];
+    // Draw each stitch as a short mark.
+    // We intentionally do NOT connect every stitch
+    // with one long continuous line.
+    for (var i = 0; i < stitches.length; i++) {
+      final stitch = stitches[i];
 
-      final x1 = centerX +
-          (previous.x - designCenterX) * scale;
+      final x = centerX +
+          (stitch.x - designCenterX) * scale;
 
-      final y1 = centerY +
-          (previous.y - designCenterY) * scale;
+      final y = centerY +
+          (stitch.y - designCenterY) * scale;
 
-      final x2 = centerX +
-          (current.x - designCenterX) * scale;
+      // Keep stitch marks visible.
+      final stitchLength =
+          (3.0 * scale).clamp(2.0, 5.0);
 
-      final y2 = centerY +
-          (current.y - designCenterY) * scale;
+      // Alternate stitch direction.
+      final direction =
+          i.isEven ? 1.0 : -1.0;
 
-      canvas.drawLine(
-        Offset(x1, y1),
-        Offset(x2, y2),
-        threadPaint,
+      final start = Offset(
+        x - stitchLength,
+        y - stitchLength * direction,
       );
 
-      canvas.drawCircle(
-        Offset(x2, y2),
-        1.5,
+      final end = Offset(
+        x + stitchLength,
+        y + stitchLength * direction,
+      );
+
+      // Individual embroidery stitch.
+      canvas.drawLine(
+        start,
+        end,
         stitchPaint,
+      );
+
+      // Small center point.
+      canvas.drawCircle(
+        Offset(x, y),
+        0.8,
+        pointPaint,
       );
     }
   }
