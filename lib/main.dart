@@ -32,8 +32,7 @@ class DesignEditorPage extends StatefulWidget {
   const DesignEditorPage({super.key});
 
   @override
-  State<DesignEditorPage> createState() =>
-      _DesignEditorPageState();
+  State<DesignEditorPage> createState() => _DesignEditorPageState();
 }
 
 class _DesignEditorPageState extends State<DesignEditorPage> {
@@ -70,9 +69,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'وێنەکە بە سەرکەوتوویی هێنرا.',
-          ),
+          content: Text('وێنەکە بە سەرکەوتوویی هێنرا.'),
         ),
       );
     } catch (e) {
@@ -80,9 +77,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'هەڵە لە هێنانی وێنە: $e',
-          ),
+          content: Text('هەڵە لە هێنانی وێنە: $e'),
         ),
       );
     }
@@ -92,9 +87,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     if (selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'سەرەتا PNG یان JPG هەڵبژێرە.',
-          ),
+          content: Text('سەرەتا PNG یان JPG هەڵبژێرە.'),
         ),
       );
       return;
@@ -148,9 +141,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'هەڵە لە گۆڕینی وێنە: $e',
-          ),
+          content: Text('هەڵە لە گۆڕینی وێنە: $e'),
         ),
       );
     }
@@ -160,9 +151,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     if (stitches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'سەرەتا وێنەکە بکە بە Stitch.',
-          ),
+          content: Text('سەرەتا وێنەکە بکە بە Stitch.'),
         ),
       );
       return;
@@ -254,9 +243,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             const Text(
               'PNG/JPG → Stitch → DST',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-              ),
+              style: TextStyle(fontSize: 18),
             ),
 
             const SizedBox(height: 25),
@@ -376,7 +363,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
-            // Stitch Preview
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -384,6 +370,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                   height: 300,
                   width: double.infinity,
                   decoration: BoxDecoration(
+                    color: Colors.white,
                     border: Border.all(
                       color: Colors.grey.shade300,
                     ),
@@ -409,9 +396,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             const SizedBox(height: 20),
 
             FilledButton.icon(
-              onPressed: isConverting
-                  ? null
-                  : convertToStitches,
+              onPressed:
+                  isConverting ? null : convertToStitches,
               icon: isConverting
                   ? const SizedBox(
                       width: 20,
@@ -431,9 +417,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             const SizedBox(height: 12),
 
             FilledButton.icon(
-              onPressed: isExporting
-                  ? null
-                  : createDst,
+              onPressed:
+                  isExporting ? null : createDst,
               icon: isExporting
                   ? const SizedBox(
                       width: 20,
@@ -457,9 +442,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
               icon: const Icon(
                 Icons.delete_outline,
               ),
-              label: const Text(
-                'پاککردنەوە',
-              ),
+              label: const Text('پاککردنەوە'),
             ),
 
             const SizedBox(height: 20),
@@ -489,11 +472,10 @@ class StitchPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (stitches.isEmpty) return;
 
-    // Find the design boundaries.
-    var minX = stitches.first.x.toDouble();
-    var maxX = stitches.first.x.toDouble();
-    var minY = stitches.first.y.toDouble();
-    var maxY = stitches.first.y.toDouble();
+    double minX = stitches.first.x.toDouble();
+    double maxX = stitches.first.x.toDouble();
+    double minY = stitches.first.y.toDouble();
+    double maxY = stitches.first.y.toDouble();
 
     for (final stitch in stitches) {
       final x = stitch.x.toDouble();
@@ -512,7 +494,7 @@ class StitchPainter extends CustomPainter {
       return;
     }
 
-    const padding = 25.0;
+    const padding = 35.0;
 
     final availableWidth =
         size.width - padding * 2;
@@ -538,20 +520,19 @@ class StitchPainter extends CustomPainter {
     final designCenterY =
         (minY + maxY) / 2;
 
-    // Embroidery stitch paint.
+    // Stitch preview is intentionally light.
     final stitchPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
+      ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.round;
 
-    // Stitch center point.
-    final pointPaint = Paint()
-      ..style = PaintingStyle.fill;
+    // Draw only every third stitch.
+    // This prevents a dense black block.
+    const skip = 3;
 
-    // Draw each stitch as a short mark.
-    // We intentionally do NOT connect every stitch
-    // with one long continuous line.
-    for (var i = 0; i < stitches.length; i++) {
+    for (var i = 0;
+        i < stitches.length;
+        i += skip) {
       final stitch = stitches[i];
 
       final x = centerX +
@@ -560,36 +541,27 @@ class StitchPainter extends CustomPainter {
       final y = centerY +
           (stitch.y - designCenterY) * scale;
 
-      // Keep stitch marks visible.
-      final stitchLength =
-          (3.0 * scale).clamp(2.0, 5.0);
+      const length = 3.0;
 
-      // Alternate stitch direction.
       final direction =
-          i.isEven ? 1.0 : -1.0;
+          ((i ~/ skip) % 2 == 0)
+              ? 1.0
+              : -1.0;
 
       final start = Offset(
-        x - stitchLength,
-        y - stitchLength * direction,
+        x - length,
+        y - length * direction,
       );
 
       final end = Offset(
-        x + stitchLength,
-        y + stitchLength * direction,
+        x + length,
+        y + length * direction,
       );
 
-      // Individual embroidery stitch.
       canvas.drawLine(
         start,
         end,
         stitchPaint,
-      );
-
-      // Small center point.
-      canvas.drawCircle(
-        Offset(x, y),
-        0.8,
-        pointPaint,
       );
     }
   }
