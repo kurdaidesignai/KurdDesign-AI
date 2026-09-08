@@ -520,15 +520,14 @@ class StitchPainter extends CustomPainter {
     final designCenterY =
         (minY + maxY) / 2;
 
-    // Stitch preview is intentionally light.
     final stitchPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.round;
 
-    // Draw only every third stitch.
-    // This prevents a dense black block.
-    const skip = 3;
+    // Draw individual embroidery stitches,
+    // not one continuous black line.
+    const skip = 2;
 
     for (var i = 0;
         i < stitches.length;
@@ -541,26 +540,22 @@ class StitchPainter extends CustomPainter {
       final y = centerY +
           (stitch.y - designCenterY) * scale;
 
-      const length = 3.0;
+      const stitchLength = 3.0;
 
       final direction =
           ((i ~/ skip) % 2 == 0)
               ? 1.0
               : -1.0;
 
-      final start = Offset(
-        x - length,
-        y - length * direction,
-      );
-
-      final end = Offset(
-        x + length,
-        y + length * direction,
-      );
-
       canvas.drawLine(
-        start,
-        end,
+        Offset(
+          x - stitchLength,
+          y - stitchLength * direction,
+        ),
+        Offset(
+          x + stitchLength,
+          y + stitchLength * direction,
+        ),
         stitchPaint,
       );
     }
