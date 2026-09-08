@@ -13,45 +13,113 @@ class StitchEngine {
     double heightMm = 50.0,
     int threshold = 180,
   }) {
-    final image = img.decodeImage(bytes);
+    final source = img.decodeImage(bytes);
 
-    if (image == null) {
+    if (source == null) {
       throw Exception('Unable to decode image');
     }
 
-    // Resize while keeping the original aspect ratio.
+    // Resize while keeping aspect ratio.
     final resized = img.copyResize(
-      image,
-      width: image.width >= image.height ? maxSize : null,
-      height: image.height > image.width ? maxSize : null,
+      source,
+      width: source.width >= source.height ? maxSize : null,
+      height: source.height > source.width ? maxSize : null,
     );
 
     final stitches = <StitchPoint>[];
 
-    // Higher density = stitches closer together.
-    final step = (9.0 - density)
-        .clamp(1.0, 8.0)
-        .round();
-
     final scaleX = widthMm / resized.width;
     final scaleY = heightMm / resized.height;
 
+    // Density:
+    // 1 = farther stitches
+    // 8 = closer stitches
+    final step = (9.0 - density).clamp(1.0, 8.0).round();
+
+    // Convert image to grayscale.
+    final gray = List.generate(
+      resized.height,
+      (_) => List<double>.filled(resized.width, 0),
+    );
+
+    for (var y = 0; y < resized.height; y++) {
+      for (var x = 0; x < resized.width; x++) {
+        final p = resized.getPixel(x, y);
+
+        gray[y][x] =
+            (p.r * 0.299) +
+            (p.g * 0.587) +
+            (p.b * 0.114);
+      }
+    }
+
+    // Detect edges.
+    final edges = <List<bool>>[];
+
+    for (var y = 0; y < resized.height; y++) {
+      final row = List<bool>.filled(resized.width, false);
+
+      for (var x = 0; x < resized.width; x++) {
+        if (x == 0 ||
+            y == 0 ||
+            x >= resized.width - 1 ||
+            y >= resized.height - 1) {
+          continue;
+        }
+
+        final center = gray[y][x];
+
+        final right = gray[y][x + 1];
+        final down = gray[y + 1][x];
+
+        final difference =
+            ((center - right).abs() +
+                (center - down).abs()) /
+            2.0;
+
+        row[x] = difference > 25;
+      }
+
+      edges.add(row);
+    }
+
+    // Convert detected edges into embroidery stitch paths.
     for (var y = 0; y < resized.height; y += step) {
+      var pathStarted = false;
+
       for (var x = 0; x < resized.width; x += step) {
-        final pixel = resized.getPixel(x, y);
+        if (!edges[y][x]) {
+          pathStarted = false;
+          continue;
+        }
 
-        final brightness =
-            (pixel.r + pixel.g + pixel.b) / 3.0;
+        final stitchX =
+            (x * scaleX * 10).round();
 
-        // Dark pixels become embroidery stitches.
-        if (brightness < threshold) {
+        final stitchY =
+            (y * scaleY * 10).round();
+
+        // Add a small jump/start marker by
+        // separating disconnected paths.
+        if (!pathStarted && stitches.isNotEmpty) {
+          final previous = stitches.last;
+
           stitches.add(
             StitchPoint(
-              (x * scaleX * 10).round(),
-              (y * scaleY * 10).round(),
+              previous.x,
+              previous.y,
             ),
           );
         }
+
+        stitches.add(
+          StitchPoint(
+            stitchX,
+            stitchY,
+          ),
+        );
+
+        pathStarted = true;
       }
     }
 
