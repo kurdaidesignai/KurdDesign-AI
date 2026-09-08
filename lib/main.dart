@@ -258,20 +258,52 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
+            // DESIGN PREVIEW
             if (selectedImage != null)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Image.memory(
-                    selectedImage!,
-                    height: 230,
-                    fit: BoxFit.contain,
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Design Preview',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        height: 280,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                          ),
+                          borderRadius:
+                              BorderRadius.circular(12),
+                        ),
+                        child: ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(12),
+                          child: Image.memory(
+                            selectedImage!,
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
 
             const SizedBox(height: 20),
 
+            // SETTINGS
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -363,32 +395,51 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
+            // STITCH PREVIEW
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Container(
-                  height: 300,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(
-                      color: Colors.grey.shade300,
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Stitch Preview',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    borderRadius:
-                        BorderRadius.circular(12),
-                  ),
-                  child: stitches.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Stitch Preview\n'
-                            'وێنەکە بکە بە Stitch',
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      : CustomPaint(
-                          painter: StitchPainter(stitches),
-                          child: const SizedBox.expand(),
+
+                    const SizedBox(height: 10),
+
+                    Container(
+                      height: 300,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: Colors.grey.shade300,
                         ),
+                        borderRadius:
+                            BorderRadius.circular(12),
+                      ),
+                      child: stitches.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'وێنەکە بکە بە Stitch',
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          : CustomPaint(
+                              painter:
+                                  StitchPainter(stitches),
+                              child:
+                                  const SizedBox.expand(),
+                            ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -402,11 +453,14 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(
+                      child:
+                          CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
-                  : const Icon(Icons.auto_awesome),
+                  : const Icon(
+                      Icons.auto_awesome,
+                    ),
               label: Text(
                 isConverting
                     ? 'لە کاردایە...'
@@ -423,7 +477,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(
+                      child:
+                          CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
@@ -494,7 +549,7 @@ class StitchPainter extends CustomPainter {
       return;
     }
 
-    const padding = 35.0;
+    const padding = 25.0;
 
     final availableWidth =
         size.width - padding * 2;
@@ -522,11 +577,9 @@ class StitchPainter extends CustomPainter {
 
     final stitchPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
+      ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round;
 
-    // Draw individual embroidery stitches,
-    // not one continuous black line.
     const skip = 2;
 
     for (var i = 0;
