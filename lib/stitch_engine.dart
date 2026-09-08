@@ -19,7 +19,6 @@ class StitchEngine {
       throw Exception('Unable to decode image');
     }
 
-    // Resize the image while keeping its aspect ratio.
     final resized = img.copyResize(
       source,
       width: source.width >= source.height
@@ -30,23 +29,22 @@ class StitchEngine {
           : null,
     );
 
-    final stitches = <StitchPoint>[];
-
     if (resized.width < 2 || resized.height < 2) {
-      return stitches;
+      return [];
     }
 
     final scaleX = widthMm / resized.width;
     final scaleY = heightMm / resized.height;
 
-    // Density controls the distance between embroidery rows.
-    //
-    // 1 = wider spacing
-    // 8 = closer spacing
+    // Density:
+    // 1 = fewer stitches
+    // 8 = more stitches
     final rowStep =
         (10.0 - density).clamp(2.0, 9.0).round();
 
-    // Convert image to grayscale.
+    final stitches = <StitchPoint>[];
+
+    // Convert the image to grayscale.
     final gray = List.generate(
       resized.height,
       (_) => List<double>.filled(
@@ -66,10 +64,7 @@ class StitchEngine {
       }
     }
 
-    // Slightly clean the image.
-    //
-    // A pixel is considered dark only when it is
-    // clearly below the selected threshold.
+    // Find dark areas.
     final dark = List.generate(
       resized.height,
       (_) => List<bool>.filled(
@@ -84,48 +79,39 @@ class StitchEngine {
       }
     }
 
-    // Scan the design row by row.
-    //
-    // Instead of creating a stitch for every dark pixel,
-    // create evenly spaced running stitches.
+    // Create horizontal running stitches.
     for (var y = 0;
         y < resized.height;
         y += rowStep) {
       final segments = <List<int>>[];
 
-      var segmentStart = -1;
-      var lastDarkX = -1;
+      var start = -1;
+      var end = -1;
 
       for (var x = 0;
           x < resized.width;
           x += rowStep) {
         if (dark[y][x]) {
-          if (segmentStart == -1) {
-            segmentStart = x;
+          if (start == -1) {
+            start = x;
           }
 
-          lastDarkX = x;
+          end = x;
         } else {
-          if (segmentStart != -1) {
-            segments.add([
-              segmentStart,
-              lastDarkX,
-            ]);
+          if (start != -1) {
+            segments.add([start, end]);
 
-            segmentStart = -1;
-            lastDarkX = -1;
+            start = -1;
+            end = -1;
           }
         }
       }
 
-      if (segmentStart != -1) {
-        segments.add([
-          segmentStart,
-          lastDarkX,
-        ]);
+      if (start != -1) {
+        segments.add([start, end]);
       }
 
-      // Ignore extremely small segments.
+      // Ignore extremely small areas.
       final usefulSegments = segments.where((segment) {
         final segmentWidth =
             segment[1] - segment[0];
@@ -139,31 +125,29 @@ class StitchEngine {
 
       final rowIndex = y ~/ rowStep;
 
-      // Alternate direction to create a clean
-      // embroidery running-stitch pattern.
       if (rowIndex.isEven) {
         for (final segment in usefulSegments) {
-          _addSegmentStitches(
+          _addSegment(
             stitches,
-            segment[0],
-            segment[1],
-            y,
-            rowStep,
-            scaleX,
-            scaleY,
+            startX: segment[0],
+            endX: segment[1],
+            y: y,
+            step: rowStep,
+            scaleX: scaleX,
+            scaleY: scaleY,
             forward: true,
           );
         }
       } else {
         for (final segment in usefulSegments.reversed) {
-          _addSegmentStitches(
+          _addSegment(
             stitches,
-            segment[0],
-            segment[1],
-            y,
-            rowStep,
-            scaleX,
-            scaleY,
+            startX: segment[0],
+            endX: segment[1],
+            y: y,
+            step: rowStep,
+            scaleX: scaleX,
+            scaleY: scaleY,
             forward: false,
           );
         }
@@ -173,17 +157,19 @@ class StitchEngine {
     return _removeDuplicatePoints(stitches);
   }
 
-  static void _addSegmentStitches(
-    List<StitchPoint> stitches,
-    int startX,
-    int endX,
-    int y,
-    int step,
-    double scaleX,
-    double scaleY, {
+  static void _addSegment(
+    List<StitchPoint> stitches, {
+    required int startX,
+    required int endX,
+    required int y,
+    required int step,
+    required double scaleX,
+    required double scaleY,
     required bool forward,
   }) {
-    if (startX > endX) return;
+    if (startX > endX) {
+      return;
+    }
 
     if (forward) {
       for (var x = startX;
@@ -197,7 +183,6 @@ class StitchEngine {
         );
       }
 
-      // Make sure the end of the segment is included.
       if ((endX - startX) % step != 0) {
         stitches.add(
           StitchPoint(
@@ -218,7 +203,6 @@ class StitchEngine {
         );
       }
 
-      // Make sure the beginning of the segment is included.
       if ((endX - startX) % step != 0) {
         stitches.add(
           StitchPoint(
