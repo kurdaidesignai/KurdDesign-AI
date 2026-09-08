@@ -196,7 +196,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('هەڵە لە دروستکردنی DST: $e'),
+          content: Text(
+            'هەڵە لە دروستکردنی DST: $e',
+          ),
         ),
       );
     }
@@ -277,7 +279,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'قەبارەی نەخشە',
@@ -363,22 +366,31 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
+            // Stitch Preview
             Card(
-              child: SizedBox(
-                height: 280,
-                child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Container(
+                  height: 300,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.grey.shade300,
+                    ),
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
                   child: stitches.isEmpty
-                      ? const Text(
-                          'Stitch Preview\n'
-                          'وێنەکە بکە بە Stitch',
-                          textAlign: TextAlign.center,
+                      ? const Center(
+                          child: Text(
+                            'Stitch Preview\n'
+                            'وێنەکە بکە بە Stitch',
+                            textAlign: TextAlign.center,
+                          ),
                         )
                       : CustomPaint(
-                          size: const Size(
-                            double.infinity,
-                            250,
-                          ),
                           painter: StitchPainter(stitches),
+                          child: const SizedBox.expand(),
                         ),
                 ),
               ),
@@ -387,8 +399,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             const SizedBox(height: 20),
 
             FilledButton.icon(
-              onPressed:
-                  isConverting ? null : convertToStitches,
+              onPressed: isConverting
+                  ? null
+                  : convertToStitches,
               icon: isConverting
                   ? const SizedBox(
                       width: 20,
@@ -408,8 +421,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             const SizedBox(height: 12),
 
             FilledButton.icon(
-              onPressed:
-                  isExporting ? null : createDst,
+              onPressed: isExporting
+                  ? null
+                  : createDst,
               icon: isExporting
                   ? const SizedBox(
                       width: 20,
@@ -430,7 +444,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             OutlinedButton.icon(
               onPressed: clearDesign,
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(
+                Icons.delete_outline,
+              ),
               label: const Text('پاککردنەوە'),
             ),
 
@@ -461,35 +477,47 @@ class StitchPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (stitches.isEmpty) return;
 
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    var minX = stitches.first.x;
-    var maxX = stitches.first.x;
-    var minY = stitches.first.y;
-    var maxY = stitches.first.y;
+    var minX = stitches.first.x.toDouble();
+    var maxX = stitches.first.x.toDouble();
+    var minY = stitches.first.y.toDouble();
+    var maxY = stitches.first.y.toDouble();
 
     for (final point in stitches) {
-      if (point.x < minX) minX = point.x;
-      if (point.x > maxX) maxX = point.x;
-      if (point.y < minY) minY = point.y;
-      if (point.y > maxY) maxY = point.y;
+      if (point.x < minX) {
+        minX = point.x.toDouble();
+      }
+
+      if (point.x > maxX) {
+        maxX = point.x.toDouble();
+      }
+
+      if (point.y < minY) {
+        minY = point.y.toDouble();
+      }
+
+      if (point.y > maxY) {
+        maxY = point.y.toDouble();
+      }
     }
 
-    final designWidth =
-        (maxX - minX).toDouble();
+    final designWidth = maxX - minX;
+    final designHeight = maxY - minY;
 
-    final designHeight =
-        (maxY - minY).toDouble();
+    const padding = 25.0;
+
+    final availableWidth =
+        size.width - (padding * 2);
+
+    final availableHeight =
+        size.height - (padding * 2);
 
     final scaleX = designWidth == 0
         ? 1.0
-        : (size.width - 20) / designWidth;
+        : availableWidth / designWidth;
 
     final scaleY = designHeight == 0
         ? 1.0
-        : (size.height - 20) / designHeight;
+        : availableHeight / designHeight;
 
     final scale =
         scaleX < scaleY ? scaleX : scaleY;
@@ -503,28 +531,45 @@ class StitchPainter extends CustomPainter {
     final designCenterY =
         (minY + maxY) / 2;
 
-    final path = Path();
+    // Thread line.
+    final threadPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
 
-    path.moveTo(
-      centerX +
-          (stitches.first.x - designCenterX) * scale,
-      centerY +
-          (stitches.first.y - designCenterY) * scale,
-    );
+    // Stitch dot.
+    final stitchPaint = Paint()
+      ..style = PaintingStyle.fill;
 
+    // Draw every stitch separately.
     for (var i = 1; i < stitches.length; i++) {
-      final x =
-          centerX +
-          (stitches[i].x - designCenterX) * scale;
+      final previous = stitches[i - 1];
+      final current = stitches[i];
 
-      final y =
-          centerY +
-          (stitches[i].y - designCenterY) * scale;
+      final x1 = centerX +
+          (previous.x - designCenterX) * scale;
 
-      path.lineTo(x, y);
+      final y1 = centerY +
+          (previous.y - designCenterY) * scale;
+
+      final x2 = centerX +
+          (current.x - designCenterX) * scale;
+
+      final y2 = centerY +
+          (current.y - designCenterY) * scale;
+
+      canvas.drawLine(
+        Offset(x1, y1),
+        Offset(x2, y2),
+        threadPaint,
+      );
+
+      canvas.drawCircle(
+        Offset(x2, y2),
+        1.5,
+        stitchPaint,
+      );
     }
-
-    canvas.drawPath(path, paint);
   }
 
   @override
