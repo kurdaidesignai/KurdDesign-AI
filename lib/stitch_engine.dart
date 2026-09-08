@@ -19,6 +19,7 @@ class StitchEngine {
       throw Exception('Unable to decode image');
     }
 
+    // Resize the image while keeping its aspect ratio.
     final resized = img.copyResize(
       source,
       width: source.width >= source.height
@@ -31,125 +32,202 @@ class StitchEngine {
 
     final stitches = <StitchPoint>[];
 
+    if (resized.width < 2 || resized.height < 2) {
+      return stitches;
+    }
+
     final scaleX = widthMm / resized.width;
     final scaleY = heightMm / resized.height;
 
-    // 1 = wider stitches
-    // 8 = closer stitches
-    final step = (9.0 - density)
-        .clamp(1.0, 8.0)
-        .round();
+    // Density controls the distance between embroidery rows.
+    //
+    // 1 = wider spacing
+    // 8 = closer spacing
+    final rowStep =
+        (10.0 - density).clamp(2.0, 9.0).round();
 
     // Convert image to grayscale.
     final gray = List.generate(
       resized.height,
       (_) => List<double>.filled(
         resized.width,
-        255,
+        255.0,
       ),
     );
 
     for (var y = 0; y < resized.height; y++) {
       for (var x = 0; x < resized.width; x++) {
-        final p = resized.getPixel(x, y);
+        final pixel = resized.getPixel(x, y);
 
         gray[y][x] =
-            p.r * 0.299 +
-            p.g * 0.587 +
-            p.b * 0.114;
+            pixel.r * 0.299 +
+            pixel.g * 0.587 +
+            pixel.b * 0.114;
       }
     }
 
-    // Create embroidery rows.
+    // Slightly clean the image.
     //
-    // Instead of drawing only the outline,
-    // we scan the complete dark area.
-    for (var y = 0; y < resized.height; y += step) {
-      final rowPoints = <int>[];
+    // A pixel is considered dark only when it is
+    // clearly below the selected threshold.
+    final dark = List.generate(
+      resized.height,
+      (_) => List<bool>.filled(
+        resized.width,
+        false,
+      ),
+    );
 
-      for (var x = 0; x < resized.width; x += step) {
-        if (gray[y][x] < threshold) {
-          rowPoints.add(x);
+    for (var y = 0; y < resized.height; y++) {
+      for (var x = 0; x < resized.width; x++) {
+        dark[y][x] = gray[y][x] < threshold;
+      }
+    }
+
+    // Scan the design row by row.
+    //
+    // Instead of creating a stitch for every dark pixel,
+    // create evenly spaced running stitches.
+    for (var y = 0;
+        y < resized.height;
+        y += rowStep) {
+      final segments = <List<int>>[];
+
+      var segmentStart = -1;
+      var lastDarkX = -1;
+
+      for (var x = 0;
+          x < resized.width;
+          x += rowStep) {
+        if (dark[y][x]) {
+          if (segmentStart == -1) {
+            segmentStart = x;
+          }
+
+          lastDarkX = x;
+        } else {
+          if (segmentStart != -1) {
+            segments.add([
+              segmentStart,
+              lastDarkX,
+            ]);
+
+            segmentStart = -1;
+            lastDarkX = -1;
+          }
         }
       }
 
-      if (rowPoints.isEmpty) {
+      if (segmentStart != -1) {
+        segments.add([
+          segmentStart,
+          lastDarkX,
+        ]);
+      }
+
+      // Ignore extremely small segments.
+      final usefulSegments = segments.where((segment) {
+        final segmentWidth =
+            segment[1] - segment[0];
+
+        return segmentWidth >= rowStep;
+      }).toList();
+
+      if (usefulSegments.isEmpty) {
         continue;
       }
 
-      // Group nearby dark pixels into segments.
-      final segments = <List<int>>[];
-      var current = <int>[];
+      final rowIndex = y ~/ rowStep;
 
-      for (var i = 0; i < rowPoints.length; i++) {
-        final x = rowPoints[i];
-
-        if (current.isEmpty) {
-          current.add(x);
-          continue;
-        }
-
-        if (x - current.last <= step * 2) {
-          current.add(x);
-        } else {
-          segments.add(current);
-          current = <int>[x];
-        }
-      }
-
-      if (current.isNotEmpty) {
-        segments.add(current);
-      }
-
-      // Create running stitches through each segment.
-      for (final segment in segments) {
-        if (segment.isEmpty) continue;
-
-        final startX = segment.first;
-        final endX = segment.last;
-
-        if (startX == endX) {
-          stitches.add(
-            StitchPoint(
-              (startX * scaleX * 10).round(),
-              (y * scaleY * 10).round(),
-            ),
+      // Alternate direction to create a clean
+      // embroidery running-stitch pattern.
+      if (rowIndex.isEven) {
+        for (final segment in usefulSegments) {
+          _addSegmentStitches(
+            stitches,
+            segment[0],
+            segment[1],
+            y,
+            rowStep,
+            scaleX,
+            scaleY,
+            forward: true,
           );
-          continue;
         }
-
-        // Alternate direction on every row.
-        if ((y ~/ step).isEven) {
-          for (
-            var x = startX;
-            x <= endX;
-            x += step
-          ) {
-            stitches.add(
-              StitchPoint(
-                (x * scaleX * 10).round(),
-                (y * scaleY * 10).round(),
-              ),
-            );
-          }
-        } else {
-          for (
-            var x = endX;
-            x >= startX;
-            x -= step
-          ) {
-            stitches.add(
-              StitchPoint(
-                (x * scaleX * 10).round(),
-                (y * scaleY * 10).round(),
-              ),
-            );
-          }
+      } else {
+        for (final segment in usefulSegments.reversed) {
+          _addSegmentStitches(
+            stitches,
+            segment[0],
+            segment[1],
+            y,
+            rowStep,
+            scaleX,
+            scaleY,
+            forward: false,
+          );
         }
       }
     }
 
     return _removeDuplicatePoints(stitches);
+  }
+
+  static void _addSegmentStitches(
+    List<StitchPoint> stitches,
+    int startX,
+    int endX,
+    int y,
+    int step,
+    double scaleX,
+    double scaleY, {
+    required bool forward,
+  }) {
+    if (startX > endX) return;
+
+    if (forward) {
+      for (var x = startX;
+          x <= endX;
+          x += step) {
+        stitches.add(
+          StitchPoint(
+            (x * scaleX * 10).round(),
+            (y * scaleY * 10).round(),
+          ),
+        );
+      }
+
+      // Make sure the end of the segment is included.
+      if ((endX - startX) % step != 0) {
+        stitches.add(
+          StitchPoint(
+            (endX * scaleX * 10).round(),
+            (y * scaleY * 10).round(),
+          ),
+        );
+      }
+    } else {
+      for (var x = endX;
+          x >= startX;
+          x -= step) {
+        stitches.add(
+          StitchPoint(
+            (x * scaleX * 10).round(),
+            (y * scaleY * 10).round(),
+          ),
+        );
+      }
+
+      // Make sure the beginning of the segment is included.
+      if ((endX - startX) % step != 0) {
+        stitches.add(
+          StitchPoint(
+            (startX * scaleX * 10).round(),
+            (y * scaleY * 10).round(),
+          ),
+        );
+      }
+    }
   }
 
   static List<StitchPoint> _removeDuplicatePoints(
