@@ -1,24 +1,419 @@
-name: kurd_design_ai
-description: AI-powered Kurdish clothing design app
-publish_to: "none"
+import 'dart:typed_data';
 
-version: 1.0.0+1
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
-environment:
-  sdk: ">=3.10.0 <4.0.0"
+import 'dst_export.dart';
+import 'stitch_engine.dart';
 
-dependencies:
-  flutter:
-    sdk: flutter
+void main() {
+  runApp(const KurdDesignApp());
+}
 
-  image_picker: ^1.1.2
-  image: ^4.5.4
-  share_plus: ^13.3.0
+class KurdDesignApp extends StatelessWidget {
+  const KurdDesignApp({super.key});
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^5.0.0
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'KurdDesign-AI',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+        ),
+        useMaterial3: true,
+      ),
+      home: const DesignHomePage(),
+    );
+  }
+}
 
-flutter:
-  uses-material-design: true
+class DesignHomePage extends StatefulWidget {
+  const DesignHomePage({super.key});
+
+  @override
+  State<DesignHomePage> createState() => _DesignHomePageState();
+}
+
+class _DesignHomePageState extends State<DesignHomePage> {
+  Uint8List? selectedImage;
+  List<StitchPoint> stitches = [];
+
+  double width = 50;
+  double height = 50;
+  double density = 3;
+
+  bool isLoading = false;
+
+  Future<void> pickImage() async {
+    try {
+      const typeGroup = XTypeGroup(
+        label: 'Images',
+        extensions: ['jpg', 'jpeg', 'png', 'webp'],
+      );
+
+      final file = await openFile(
+        acceptedTypeGroups: [typeGroup],
+      );
+
+      if (file == null) {
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
+
+      if (bytes.isEmpty) {
+        throw Exception('وێنەکە بەتاڵە');
+      }
+
+      setState(() {
+        selectedImage = bytes;
+        stitches = [];
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('هەڵە لە کردنەوەی وێنە: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> convertToStitches() async {
+    if (selectedImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('سەرەتا وێنەیەک هەڵبژێرە'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final result = StitchEngine.imageToStitches(
+        selectedImage!,
+        maxSize: 300,
+        density: density,
+        widthMm: width,
+        heightMm: height,
+      );
+
+      setState(() {
+        stitches = result;
+        isLoading = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Stitch ـەکان دروست کران: ${stitches.length}',
+          ),
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('هەڵە: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> createDst() async {
+    if (stitches.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('سەرەتا Stitch دروست بکە'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final bytes = DstExporter.createDst(
+        stitches,
+        name: 'KURDDESIGN',
+      );
+
+      final file = XFile.fromData(
+        bytes,
+        name: 'KURDDESIGN.dst',
+        mimeType: 'application/octet-stream',
+      );
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [file],
+          text: 'KurdDesign-AI DST Design',
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('هەڵە لە DST: $e'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('KurdDesign-AI'),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton.icon(
+              onPressed: pickImage,
+              icon: const Icon(Icons.image),
+              label: const Text('هەڵبژاردنی وێنە'),
+            ),
+
+            const SizedBox(height: 20),
+
+            if (selectedImage != null) ...[
+              const Text(
+                'Design Preview',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Container(
+                width: double.infinity,
+                height: 300,
+                decoration: BoxDecoration(
+                  border: Border.all(),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    selectedImage!,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              Text(
+                'Width: ${width.toStringAsFixed(0)} mm',
+              ),
+
+              Slider(
+                value: width,
+                min: 10,
+                max: 200,
+                divisions: 19,
+                label: '${width.toStringAsFixed(0)} mm',
+                onChanged: (value) {
+                  setState(() {
+                    width = value;
+                  });
+                },
+              ),
+
+              Text(
+                'Height: ${height.toStringAsFixed(0)} mm',
+              ),
+
+              Slider(
+                value: height,
+                min: 10,
+                max: 200,
+                divisions: 19,
+                label: '${height.toStringAsFixed(0)} mm',
+                onChanged: (value) {
+                  setState(() {
+                    height = value;
+                  });
+                },
+              ),
+
+              Text(
+                'Density: ${density.toStringAsFixed(0)}',
+              ),
+
+              Slider(
+                value: density,
+                min: 1,
+                max: 8,
+                divisions: 7,
+                label: density.toStringAsFixed(0),
+                onChanged: (value) {
+                  setState(() {
+                    density = value;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              ElevatedButton.icon(
+                onPressed: isLoading ? null : convertToStitches,
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.auto_fix_high),
+                label: Text(
+                  isLoading
+                      ? 'دروستکردن...'
+                      : 'دروستکردنی Stitch',
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 30),
+
+            if (stitches.isNotEmpty) ...[
+              const Text(
+                'Stitch Preview',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Container(
+                width: double.infinity,
+                height: 350,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: CustomPaint(
+                  painter: StitchPainter(stitches),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                '${stitches.length} stitches',
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 10),
+
+              ElevatedButton.icon(
+                onPressed: createDst,
+                icon: const Icon(Icons.download),
+                label: const Text('Export DST'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class StitchPainter extends CustomPainter {
+  final List<StitchPoint> stitches;
+
+  StitchPainter(this.stitches);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (stitches.isEmpty) return;
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+
+    var minX = stitches.first.x.toDouble();
+    var maxX = stitches.first.x.toDouble();
+    var minY = stitches.first.y.toDouble();
+    var maxY = stitches.first.y.toDouble();
+
+    for (final point in stitches) {
+      final x = point.x.toDouble();
+      final y = point.y.toDouble();
+
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+
+    final designWidth = (maxX - minX).abs();
+    final designHeight = (maxY - minY).abs();
+
+    if (designWidth == 0 && designHeight == 0) {
+      return;
+    }
+
+    final scaleX =
+        designWidth == 0 ? 1 : size.width * 0.85 / designWidth;
+
+    final scaleY =
+        designHeight == 0 ? 1 : size.height * 0.85 / designHeight;
+
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+
+    Offset convert(StitchPoint point) {
+      final x =
+          (point.x - minX) * scale +
+          (size.width -
+                  designWidth * scale) /
+              2;
+
+      final y =
+          (point.y - minY) * scale +
+          (size.height -
+                  designHeight * scale) /
+              2;
+
+      return Offset(x, y);
+    }
+
+    for (var i = 1; i < stitches.length; i++) {
+      final p1 = convert(stitches[i - 1]);
+      final p2 = convert(stitches[i]);
+
+      canvas.drawLine(p1, p2, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant StitchPainter oldDelegate) {
+    return oldDelegate.stitches != stitches;
+  }
+}
