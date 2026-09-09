@@ -278,7 +278,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     }
 
-    final Uint8List? imageBytes = previewImage ?? selectedImage;
+    final Uint8List? imageBytes =
+        previewImage ?? selectedImage;
 
     if (imageBytes == null) {
       return const Center(
@@ -586,8 +587,12 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                               ),
                             )
                           : CustomPaint(
-                              painter:
-                                  StitchPainter(stitches),
+                              painter: StitchPainter(
+                                stitches,
+                                imageBytes:
+                                    previewImage ??
+                                    selectedImage,
+                              ),
                               child:
                                   const SizedBox.expand(),
                             ),
@@ -684,8 +689,12 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
 class StitchPainter extends CustomPainter {
   final List<StitchPoint> stitches;
+  final Uint8List? imageBytes;
 
-  StitchPainter(this.stitches);
+  StitchPainter(
+    this.stitches, {
+    this.imageBytes,
+  });
 
   @override
   void paint(
@@ -696,99 +705,69 @@ class StitchPainter extends CustomPainter {
       return;
     }
 
-    double minX =
-        stitches.first.x.toDouble();
-
-    double maxX =
-        stitches.first.x.toDouble();
-
-    double minY =
-        stitches.first.y.toDouble();
-
-    double maxY =
-        stitches.first.y.toDouble();
+    double minX = stitches.first.x.toDouble();
+    double maxX = stitches.first.x.toDouble();
+    double minY = stitches.first.y.toDouble();
+    double maxY = stitches.first.y.toDouble();
 
     for (final stitch in stitches) {
-      final double x =
-          stitch.x.toDouble();
+      final x = stitch.x.toDouble();
+      final y = stitch.y.toDouble();
 
-      final double y =
-          stitch.y.toDouble();
-
-      if (x < minX) {
-        minX = x;
-      }
-
-      if (x > maxX) {
-        maxX = x;
-      }
-
-      if (y < minY) {
-        minY = y;
-      }
-
-      if (y > maxY) {
-        maxY = y;
-      }
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
     }
 
-    final double designWidth =
-        maxX - minX;
+    final designWidth = maxX - minX;
+    final designHeight = maxY - minY;
 
-    final double designHeight =
-        maxY - minY;
-
-    if (designWidth <= 0 ||
-        designHeight <= 0) {
+    if (designWidth <= 0 || designHeight <= 0) {
       return;
     }
 
-    const double padding = 28;
+    const padding = 28.0;
 
-    final double availableWidth =
+    final availableWidth =
         size.width - padding * 2;
 
-    final double availableHeight =
+    final availableHeight =
         size.height - padding * 2;
 
-    final double scaleX =
+    final scaleX =
         availableWidth / designWidth;
 
-    final double scaleY =
+    final scaleY =
         availableHeight / designHeight;
 
-    double scale =
-        scaleX < scaleY
-            ? scaleX
-            : scaleY;
+    final scale =
+        scaleX < scaleY ? scaleX : scaleY;
 
-    // Keep the preview at a useful size.
     if (scale.isInfinite || scale.isNaN) {
       return;
     }
 
-    final double centerX =
-        size.width / 2;
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
 
-    final double centerY =
-        size.height / 2;
-
-    final double designCenterX =
+    final designCenterX =
         (minX + maxX) / 2;
 
-    final double designCenterY =
+    final designCenterY =
         (minY + maxY) / 2;
 
-    /*
-     * IMPORTANT:
-     *
-     * The real stitch list is NOT changed.
-     * We only reduce the number of marks
-     * drawn on screen.
-     *
-     * This prevents 10,000+ stitches from
-     * becoming one solid black shape.
-     */
+    img.Image? sourceImage;
+
+    if (imageBytes != null) {
+      try {
+        sourceImage =
+            img.decodeImage(imageBytes!);
+      } catch (_) {
+        sourceImage = null;
+      }
+    }
+
     int previewStep;
 
     if (stitches.length > 20000) {
@@ -805,48 +784,20 @@ class StitchPainter extends CustomPainter {
       previewStep = 2;
     }
 
-    /*
-     * Thread-like preview.
-     *
-     * Purple is used instead of black so the
-     * stitch structure remains visible.
-     */
-    final Paint stitchPaint = Paint()
-      ..color = const Color(0xFF5E35B1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.15
-      ..strokeCap = StrokeCap.round;
-
-    /*
-     * Very light center point.
-     */
-    final Paint pointPaint = Paint()
-      ..color = const Color(0xFF7E57C2)
-      ..style = PaintingStyle.fill;
-
-    /*
-     * Draw the actual stitch marks.
-     *
-     * We don't connect every stitch with one
-     * giant black path.
-     */
     for (
       int i = 0;
       i < stitches.length;
       i += previewStep
     ) {
-      final StitchPoint stitch =
-          stitches[i];
+      final stitch = stitches[i];
 
-      final double x =
+      final x =
           centerX +
-          (stitch.x - designCenterX) *
-              scale;
+          (stitch.x - designCenterX) * scale;
 
-      final double y =
+      final y =
           centerY +
-          (stitch.y - designCenterY) *
-              scale;
+          (stitch.y - designCenterY) * scale;
 
       if (x < -20 ||
           x > size.width + 20 ||
@@ -855,23 +806,65 @@ class StitchPainter extends CustomPainter {
         continue;
       }
 
-      /*
-       * Small embroidery stitch.
-       *
-       * Alternating direction gives a
-       * woven/stitched appearance.
-       */
-      final double direction =
+      Color stitchColor =
+          const Color(0xFF5E35B1);
+
+      if (sourceImage != null) {
+        final normalizedX =
+            (stitch.x - minX) / designWidth;
+
+        final normalizedY =
+            (stitch.y - minY) / designHeight;
+
+        final imageX =
+            (normalizedX *
+                    (sourceImage.width - 1))
+                .round()
+                .clamp(
+                  0,
+                  sourceImage.width - 1,
+                );
+
+        final imageY =
+            (normalizedY *
+                    (sourceImage.height - 1))
+                .round()
+                .clamp(
+                  0,
+                  sourceImage.height - 1,
+                );
+
+        final pixel =
+            sourceImage.getPixel(
+          imageX,
+          imageY,
+        );
+
+        stitchColor = Color.fromARGB(
+          255,
+          pixel.r.toInt(),
+          pixel.g.toInt(),
+          pixel.b.toInt(),
+        );
+      }
+
+      final paint = Paint()
+        ..color = stitchColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.15
+        ..strokeCap = StrokeCap.round;
+
+      final pointPaint = Paint()
+        ..color = stitchColor
+        ..style = PaintingStyle.fill;
+
+      final direction =
           ((i ~/ previewStep) % 2 == 0)
               ? 1.0
               : -1.0;
 
       double stitchLength = 2.7;
 
-      /*
-       * If the design is very large on screen,
-       * make the stitches slightly clearer.
-       */
       if (scale > 3) {
         stitchLength = 3.2;
       }
@@ -885,12 +878,9 @@ class StitchPainter extends CustomPainter {
           x + stitchLength,
           y + stitchLength * direction,
         ),
-        stitchPaint,
+        paint,
       );
 
-      /*
-       * Tiny point in the center.
-       */
       canvas.drawCircle(
         Offset(x, y),
         0.65,
@@ -903,6 +893,7 @@ class StitchPainter extends CustomPainter {
   bool shouldRepaint(
     covariant StitchPainter oldDelegate,
   ) {
-    return oldDelegate.stitches != stitches;
+    return oldDelegate.stitches != stitches ||
+        oldDelegate.imageBytes != imageBytes;
   }
 }
