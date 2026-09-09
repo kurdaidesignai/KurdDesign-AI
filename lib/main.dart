@@ -53,6 +53,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
   bool isExporting = false;
   bool isPreparingImage = false;
 
+  String? previewError;
+
   Future<Uint8List> _prepareImage(Uint8List bytes) async {
     try {
       final decoded = img.decodeImage(bytes);
@@ -63,7 +65,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       final normalized = img.bakeOrientation(decoded);
 
-      final pngBytes = img.encodePng(normalized);
+      final pngBytes = img.encodePng(
+        normalized,
+      );
 
       return Uint8List.fromList(pngBytes);
     } catch (_) {
@@ -73,23 +77,29 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
   Future<void> pickImage() async {
     try {
-      final image = await picker.pickImage(
+      final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 100,
       );
 
-      if (image == null) return;
+      if (image == null) {
+        return;
+      }
 
-      final bytes = await image.readAsBytes();
+      final Uint8List bytes =
+          await image.readAsBytes();
 
       if (bytes.isEmpty) {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('وێنەکە بەتاڵە یان ناتوانرێت بخوێندرێتەوە.'),
+            content: Text(
+              'وێنەکە بەتاڵە یان ناتوانرێت بخوێندرێتەوە.',
+            ),
           ),
         );
+
         return;
       }
 
@@ -99,10 +109,12 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         isPreparingImage = true;
         selectedImage = bytes;
         previewImage = null;
+        previewError = null;
         stitches = [];
       });
 
-      final prepared = await _prepareImage(bytes);
+      final Uint8List prepared =
+          await _prepareImage(bytes);
 
       if (!mounted) return;
 
@@ -110,34 +122,38 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         previewImage = prepared;
         isPreparingImage = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('وێنەکە بە سەرکەوتوویی ئامادە کرا.'),
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         isPreparingImage = false;
+        previewError =
+            'نەتوانرا وێنەکە ئامادە بکرێت.';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('هەڵە لە هێنانی وێنە: $e'),
+          content: Text(
+            'هەڵە لە هێنانی وێنە: $e',
+          ),
         ),
       );
     }
   }
 
   Future<void> convertToStitches() async {
-    if (selectedImage == null) {
+    final Uint8List? imageBytes =
+        previewImage ?? selectedImage;
+
+    if (imageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('سەرەتا PNG یان JPG هەڵبژێرە.'),
+          content: Text(
+            'سەرەتا PNG یان JPG هەڵبژێرە.',
+          ),
         ),
       );
+
       return;
     }
 
@@ -146,8 +162,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     });
 
     try {
-      final result = StitchEngine.imageToStitches(
-        selectedImage!,
+      final List<StitchPoint> result =
+          StitchEngine.imageToStitches(
+        imageBytes,
         maxSize: 400,
         density: density,
         widthMm: width,
@@ -162,7 +179,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         isConverting = false;
       });
 
-      if (stitches.isEmpty) {
+      if (result.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -170,13 +187,14 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             ),
           ),
         );
+
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${stitches.length} Stitch دروست کرا.',
+            '${result.length} Stitch دروست کرا.',
           ),
         ),
       );
@@ -189,7 +207,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('هەڵە لە گۆڕینی وێنە: $e'),
+          content: Text(
+            'هەڵە لە گۆڕینی وێنە: $e',
+          ),
         ),
       );
     }
@@ -199,9 +219,12 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     if (stitches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('سەرەتا وێنەکە بکە بە Stitch.'),
+          content: Text(
+            'سەرەتا وێنەکە بکە بە Stitch.',
+          ),
         ),
       );
+
       return;
     }
 
@@ -210,12 +233,13 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     });
 
     try {
-      final bytes = DstExporter.createDst(
+      final Uint8List bytes =
+          DstExporter.createDst(
         stitches,
         name: 'KURDDESIGN',
       );
 
-      final file = XFile.fromData(
+      final XFile file = XFile.fromData(
         bytes,
         name: 'KURDDESIGN.dst',
         mimeType: 'application/octet-stream',
@@ -229,7 +253,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       await SharePlus.instance.share(
         ShareParams(
-          files: [file],
+          files: <XFile>[file],
           subject: 'KurdDesign-AI DST',
           text: 'KurdDesign-AI embroidery design',
         ),
@@ -255,6 +279,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     setState(() {
       selectedImage = null;
       previewImage = null;
+      previewError = null;
       stitches = [];
     });
   }
@@ -266,7 +291,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     }
 
-    final imageBytes = previewImage ?? selectedImage;
+    final Uint8List? imageBytes =
+        previewImage ?? selectedImage;
 
     if (imageBytes == null) {
       return const Center(
@@ -277,18 +303,47 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     }
 
+    if (previewError != null) {
+      return Center(
+        child: Text(
+          previewError!,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.red,
+          ),
+        ),
+      );
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
+        width: double.infinity,
+        height: double.infinity,
         color: Colors.white,
         alignment: Alignment.center,
         child: Image.memory(
           imageBytes,
-          fit: BoxFit.contain,
           width: double.infinity,
           height: double.infinity,
+          fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
           gaplessPlayback: true,
+          errorBuilder: (
+            BuildContext context,
+            Object error,
+            StackTrace? stackTrace,
+          ) {
+            return const Center(
+              child: Text(
+                'نەتوانرا وێنەکە پیشان بدرێت',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.red,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -298,13 +353,16 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('KurdDesign-AI'),
+        title: const Text(
+          'KurdDesign-AI',
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment:
+              CrossAxisAlignment.stretch,
           children: [
             const Icon(
               Icons.design_services,
@@ -327,14 +385,21 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             const Text(
               'PNG/JPG → Stitch → DST',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 18,
+              ),
             ),
 
             const SizedBox(height: 25),
 
             FilledButton.icon(
-              onPressed: isPreparingImage ? null : pickImage,
-              icon: const Icon(Icons.photo_library),
+              onPressed:
+                  isPreparingImage
+                      ? null
+                      : pickImage,
+              icon: const Icon(
+                Icons.photo_library,
+              ),
               label: const Text(
                 'هێنانی وێنەی PNG / JPG',
               ),
@@ -342,23 +407,24 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
-            // =========================
             // DESIGN PREVIEW
-            // =========================
             if (selectedImage != null)
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding:
+                      const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment:
                         CrossAxisAlignment.stretch,
                     children: [
                       const Text(
                         'Design Preview',
-                        textAlign: TextAlign.center,
+                        textAlign:
+                            TextAlign.center,
                         style: TextStyle(
                           fontSize: 19,
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
 
@@ -366,7 +432,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
                       const Text(
                         'وێنەی ڕەنگاڵە و نووسینی نەخشەکە',
-                        textAlign: TextAlign.center,
+                        textAlign:
+                            TextAlign.center,
                       ),
 
                       const SizedBox(height: 12),
@@ -374,15 +441,20 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                       Container(
                         height: 300,
                         width: double.infinity,
-                        decoration: BoxDecoration(
+                        decoration:
+                            BoxDecoration(
                           color: Colors.white,
                           border: Border.all(
-                            color: Colors.grey.shade300,
+                            color:
+                                Colors.grey.shade300,
                           ),
                           borderRadius:
-                              BorderRadius.circular(12),
+                              BorderRadius.circular(
+                            12,
+                          ),
                         ),
-                        child: _buildDesignPreview(),
+                        child:
+                            _buildDesignPreview(),
                       ),
                     ],
                   ),
@@ -391,12 +463,11 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
-            // =========================
             // SETTINGS
-            // =========================
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding:
+                    const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
@@ -405,7 +476,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                       'قەبارەی نەخشە',
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
 
@@ -485,22 +557,23 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
-            // =========================
             // STITCH PREVIEW
-            // =========================
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding:
+                    const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.stretch,
                   children: [
                     const Text(
                       'Stitch Preview',
-                      textAlign: TextAlign.center,
+                      textAlign:
+                          TextAlign.center,
                       style: TextStyle(
                         fontSize: 19,
-                        fontWeight: FontWeight.bold,
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
 
@@ -508,7 +581,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
                     const Text(
                       'پێشبینینی Stitch ـەکان',
-                      textAlign: TextAlign.center,
+                      textAlign:
+                          TextAlign.center,
                     ),
 
                     const SizedBox(height: 12),
@@ -516,24 +590,31 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                     Container(
                       height: 300,
                       width: double.infinity,
-                      decoration: BoxDecoration(
+                      decoration:
+                          BoxDecoration(
                         color: Colors.white,
                         border: Border.all(
-                          color: Colors.grey.shade300,
+                          color:
+                              Colors.grey.shade300,
                         ),
                         borderRadius:
-                            BorderRadius.circular(12),
+                            BorderRadius.circular(
+                          12,
+                        ),
                       ),
                       child: stitches.isEmpty
                           ? const Center(
                               child: Text(
                                 'وێنەکە بکە بە Stitch',
-                                textAlign: TextAlign.center,
+                                textAlign:
+                                    TextAlign.center,
                               ),
                             )
                           : CustomPaint(
                               painter:
-                                  StitchPainter(stitches),
+                                  StitchPainter(
+                                stitches,
+                              ),
                               child:
                                   const SizedBox.expand(),
                             ),
@@ -545,12 +626,12 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
-            // =========================
             // CONVERT
-            // =========================
             FilledButton.icon(
               onPressed:
-                  isConverting ? null : convertToStitches,
+                  isConverting
+                      ? null
+                      : convertToStitches,
               icon: isConverting
                   ? const SizedBox(
                       width: 20,
@@ -572,12 +653,12 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 12),
 
-            // =========================
-            // DST
-            // =========================
+            // EXPORT DST
             FilledButton.icon(
               onPressed:
-                  isExporting ? null : createDst,
+                  isExporting
+                      ? null
+                      : createDst,
               icon: isExporting
                   ? const SizedBox(
                       width: 20,
@@ -587,7 +668,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                         strokeWidth: 2,
                       ),
                     )
-                  : const Icon(Icons.download),
+                  : const Icon(
+                      Icons.download,
+                    ),
               label: Text(
                 isExporting
                     ? 'ئامادە دەکرێت...'
@@ -602,7 +685,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
               icon: const Icon(
                 Icons.delete_outline,
               ),
-              label: const Text('پاککردنەوە'),
+              label: const Text(
+                'پاککردنەوە',
+              ),
             ),
 
             const SizedBox(height: 20),
@@ -612,7 +697,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 child: Text(
                   '${stitches.length} Stitch',
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
               ),
@@ -629,78 +715,120 @@ class StitchPainter extends CustomPainter {
   StitchPainter(this.stitches);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (stitches.isEmpty) return;
-
-    double minX = stitches.first.x.toDouble();
-    double maxX = stitches.first.x.toDouble();
-    double minY = stitches.first.y.toDouble();
-    double maxY = stitches.first.y.toDouble();
-
-    for (final stitch in stitches) {
-      final x = stitch.x.toDouble();
-      final y = stitch.y.toDouble();
-
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    }
-
-    final designWidth = maxX - minX;
-    final designHeight = maxY - minY;
-
-    if (designWidth <= 0 || designHeight <= 0) {
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    if (stitches.isEmpty) {
       return;
     }
 
-    const padding = 25.0;
+    double minX =
+        stitches.first.x.toDouble();
 
-    final availableWidth =
+    double maxX =
+        stitches.first.x.toDouble();
+
+    double minY =
+        stitches.first.y.toDouble();
+
+    double maxY =
+        stitches.first.y.toDouble();
+
+    for (final stitch in stitches) {
+      final double x =
+          stitch.x.toDouble();
+
+      final double y =
+          stitch.y.toDouble();
+
+      if (x < minX) {
+        minX = x;
+      }
+
+      if (x > maxX) {
+        maxX = x;
+      }
+
+      if (y < minY) {
+        minY = y;
+      }
+
+      if (y > maxY) {
+        maxY = y;
+      }
+    }
+
+    final double designWidth =
+        maxX - minX;
+
+    final double designHeight =
+        maxY - minY;
+
+    if (designWidth <= 0 ||
+        designHeight <= 0) {
+      return;
+    }
+
+    const double padding = 25;
+
+    final double availableWidth =
         size.width - padding * 2;
 
-    final availableHeight =
+    final double availableHeight =
         size.height - padding * 2;
 
-    final scaleX =
+    final double scaleX =
         availableWidth / designWidth;
 
-    final scaleY =
+    final double scaleY =
         availableHeight / designHeight;
 
-    final scale =
-        scaleX < scaleY ? scaleX : scaleY;
+    final double scale =
+        scaleX < scaleY
+            ? scaleX
+            : scaleY;
 
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
+    final double centerX =
+        size.width / 2;
 
-    final designCenterX =
+    final double centerY =
+        size.height / 2;
+
+    final double designCenterX =
         (minX + maxX) / 2;
 
-    final designCenterY =
+    final double designCenterY =
         (minY + maxY) / 2;
 
-    final stitchPaint = Paint()
+    final Paint stitchPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round;
 
-    const skip = 2;
+    const double stitchLength = 3;
 
-    for (var i = 0;
-        i < stitches.length;
-        i += skip) {
-      final stitch = stitches[i];
+    const int skip = 2;
 
-      final x = centerX +
-          (stitch.x - designCenterX) * scale;
+    for (
+      int i = 0;
+      i < stitches.length;
+      i += skip
+    ) {
+      final StitchPoint stitch =
+          stitches[i];
 
-      final y = centerY +
-          (stitch.y - designCenterY) * scale;
+      final double x =
+          centerX +
+          (stitch.x - designCenterX) *
+              scale;
 
-      const stitchLength = 3.0;
+      final double y =
+          centerY +
+          (stitch.y - designCenterY) *
+              scale;
 
-      final direction =
+      final double direction =
           ((i ~/ skip) % 2 == 0)
               ? 1.0
               : -1.0;
@@ -708,11 +836,15 @@ class StitchPainter extends CustomPainter {
       canvas.drawLine(
         Offset(
           x - stitchLength,
-          y - stitchLength * direction,
+          y -
+              stitchLength *
+                  direction,
         ),
         Offset(
           x + stitchLength,
-          y + stitchLength * direction,
+          y +
+              stitchLength *
+                  direction,
         ),
         stitchPaint,
       );
@@ -723,6 +855,7 @@ class StitchPainter extends CustomPainter {
   bool shouldRepaint(
     covariant StitchPainter oldDelegate,
   ) {
-    return oldDelegate.stitches != stitches;
+    return oldDelegate.stitches !=
+        stitches;
   }
 }
