@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -39,6 +40,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
   final ImagePicker picker = ImagePicker();
 
   Uint8List? selectedImage;
+  Uint8List? previewImage;
+
   List<StitchPoint> stitches = [];
 
   double width = 50;
@@ -48,6 +51,25 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
   bool isConverting = false;
   bool isExporting = false;
+  bool isPreparingImage = false;
+
+  Future<Uint8List> _prepareImage(Uint8List bytes) async {
+    try {
+      final decoded = img.decodeImage(bytes);
+
+      if (decoded == null) {
+        return bytes;
+      }
+
+      final normalized = img.bakeOrientation(decoded);
+
+      final pngBytes = img.encodePng(normalized);
+
+      return Uint8List.fromList(pngBytes);
+    } catch (_) {
+      return bytes;
+    }
+  }
 
   Future<void> pickImage() async {
     try {
@@ -60,20 +82,46 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
       final bytes = await image.readAsBytes();
 
+      if (bytes.isEmpty) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('وێنەکە بەتاڵە یان ناتوانرێت بخوێندرێتەوە.'),
+          ),
+        );
+        return;
+      }
+
       if (!mounted) return;
 
       setState(() {
+        isPreparingImage = true;
         selectedImage = bytes;
+        previewImage = null;
         stitches = [];
+      });
+
+      final prepared = await _prepareImage(bytes);
+
+      if (!mounted) return;
+
+      setState(() {
+        previewImage = prepared;
+        isPreparingImage = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('وێنەکە بە سەرکەوتوویی هێنرا.'),
+          content: Text('وێنەکە بە سەرکەوتوویی ئامادە کرا.'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
+
+      setState(() {
+        isPreparingImage = false;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -206,8 +254,44 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
   void clearDesign() {
     setState(() {
       selectedImage = null;
+      previewImage = null;
       stitches = [];
     });
+  }
+
+  Widget _buildDesignPreview() {
+    if (isPreparingImage) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    final imageBytes = previewImage ?? selectedImage;
+
+    if (imageBytes == null) {
+      return const Center(
+        child: Text(
+          'سەرەتا وێنەیەک هەڵبژێرە',
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        color: Colors.white,
+        alignment: Alignment.center,
+        child: Image.memory(
+          imageBytes,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          filterQuality: FilterQuality.high,
+          gaplessPlayback: true,
+        ),
+      ),
+    );
   }
 
   @override
@@ -249,7 +333,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
             const SizedBox(height: 25),
 
             FilledButton.icon(
-              onPressed: pickImage,
+              onPressed: isPreparingImage ? null : pickImage,
               icon: const Icon(Icons.photo_library),
               label: const Text(
                 'هێنانی وێنەی PNG / JPG',
@@ -258,7 +342,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
+            // =========================
             // DESIGN PREVIEW
+            // =========================
             if (selectedImage != null)
               Card(
                 child: Padding(
@@ -271,13 +357,23 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                         'Design Preview',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 19,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 10),
+
+                      const SizedBox(height: 6),
+
+                      const Text(
+                        'وێنەی ڕەنگاڵە و نووسینی نەخشەکە',
+                        textAlign: TextAlign.center,
+                      ),
+
+                      const SizedBox(height: 12),
+
                       Container(
-                        height: 280,
+                        height: 300,
+                        width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border.all(
@@ -286,15 +382,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                           borderRadius:
                               BorderRadius.circular(12),
                         ),
-                        child: ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(12),
-                          child: Image.memory(
-                            selectedImage!,
-                            fit: BoxFit.contain,
-                            gaplessPlayback: true,
-                          ),
-                        ),
+                        child: _buildDesignPreview(),
                       ),
                     ],
                   ),
@@ -303,7 +391,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
+            // =========================
             // SETTINGS
+            // =========================
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -395,7 +485,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
+            // =========================
             // STITCH PREVIEW
+            // =========================
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -407,12 +499,19 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                       'Stitch Preview',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 19,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
+
+                    const Text(
+                      'پێشبینینی Stitch ـەکان',
+                      textAlign: TextAlign.center,
+                    ),
+
+                    const SizedBox(height: 12),
 
                     Container(
                       height: 300,
@@ -446,6 +545,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 20),
 
+            // =========================
+            // CONVERT
+            // =========================
             FilledButton.icon(
               onPressed:
                   isConverting ? null : convertToStitches,
@@ -470,6 +572,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             const SizedBox(height: 12),
 
+            // =========================
+            // DST
+            // =========================
             FilledButton.icon(
               onPressed:
                   isExporting ? null : createDst,
