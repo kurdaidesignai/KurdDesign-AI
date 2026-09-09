@@ -21,12 +21,8 @@ class StitchEngine {
 
     final resized = img.copyResize(
       source,
-      width: source.width >= source.height
-          ? maxSize
-          : null,
-      height: source.height > source.width
-          ? maxSize
-          : null,
+      width: source.width >= source.height ? maxSize : null,
+      height: source.height > source.width ? maxSize : null,
     );
 
     if (resized.width < 2 || resized.height < 2) {
@@ -36,62 +32,67 @@ class StitchEngine {
     final scaleX = widthMm / resized.width;
     final scaleY = heightMm / resized.height;
 
-    // Density:
-    // 1 = fewer stitches
-    // 8 = more stitches
+    // 1 = کەمتر Stitch
+    // 8 = زۆرتر Stitch
     final rowStep =
         (10.0 - density).clamp(2.0, 9.0).round();
 
     final stitches = <StitchPoint>[];
 
-    // Convert the image to grayscale.
-    final gray = List.generate(
-      resized.height,
-      (_) => List<double>.filled(
-        resized.width,
-        255.0,
-      ),
-    );
-
-    for (var y = 0; y < resized.height; y++) {
-      for (var x = 0; x < resized.width; x++) {
-        final pixel = resized.getPixel(x, y);
-
-        gray[y][x] =
-            pixel.r * 0.299 +
-            pixel.g * 0.587 +
-            pixel.b * 0.114;
-      }
-    }
-
-    // Find dark areas.
-    final dark = List.generate(
-      resized.height,
-      (_) => List<bool>.filled(
-        resized.width,
-        false,
-      ),
-    );
-
-    for (var y = 0; y < resized.height; y++) {
-      for (var x = 0; x < resized.width; x++) {
-        dark[y][x] = gray[y][x] < threshold;
-      }
-    }
-
-    // Create horizontal running stitches.
-    for (var y = 0;
-        y < resized.height;
-        y += rowStep) {
+    for (var y = 0; y < resized.height; y += rowStep) {
       final segments = <List<int>>[];
 
       var start = -1;
       var end = -1;
 
-      for (var x = 0;
-          x < resized.width;
-          x += rowStep) {
-        if (dark[y][x]) {
+      for (var x = 0; x < resized.width; x += rowStep) {
+        final pixel = resized.getPixel(x, y);
+
+        final r = pixel.r.toDouble();
+        final g = pixel.g.toDouble();
+        final b = pixel.b.toDouble();
+        final a = pixel.a.toDouble();
+
+        if (a < 20) {
+          if (start != -1) {
+            segments.add([start, end]);
+            start = -1;
+            end = -1;
+          }
+          continue;
+        }
+
+        final brightness =
+            (r * 0.299) +
+            (g * 0.587) +
+            (b * 0.114);
+
+        final maxChannel =
+            [r, g, b].reduce((a, b) => a > b ? a : b);
+
+        final minChannel =
+            [r, g, b].reduce((a, b) => a < b ? a : b);
+
+        final saturation =
+            maxChannel - minChannel;
+
+        // ڕەنگە تۆخەکان و ڕەشەکان
+        final isDark = brightness < threshold;
+
+        // ڕەنگە ڕوونەکان وەک
+        // سور، شین، سەوز، زەرد، مۆر...
+        final isColored = saturation > 18;
+
+        // شتە ڕوونەکان کە زۆر نزیک بە سپی نین
+        final isLightDesign =
+            (255 - maxChannel) > 15;
+
+        final isDesignPixel =
+            isDark ||
+            isColored ||
+            isLightDesign;
+
+        if (isDesignPixel) {
           if (start == -1) {
             start = x;
           }
@@ -111,8 +112,8 @@ class StitchEngine {
         segments.add([start, end]);
       }
 
-      // Ignore extremely small areas.
-      final usefulSegments = segments.where((segment) {
+      final usefulSegments =
+          segments.where((segment) {
         final segmentWidth =
             segment[1] - segment[0];
 
@@ -172,9 +173,11 @@ class StitchEngine {
     }
 
     if (forward) {
-      for (var x = startX;
-          x <= endX;
-          x += step) {
+      for (
+        var x = startX;
+        x <= endX;
+        x += step
+      ) {
         stitches.add(
           StitchPoint(
             (x * scaleX * 10).round(),
@@ -192,9 +195,11 @@ class StitchEngine {
         );
       }
     } else {
-      for (var x = endX;
-          x >= startX;
-          x -= step) {
+      for (
+        var x = endX;
+        x >= startX;
+        x -= step
+      ) {
         stitches.add(
           StitchPoint(
             (x * scaleX * 10).round(),
