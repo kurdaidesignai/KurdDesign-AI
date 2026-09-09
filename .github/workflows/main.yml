@@ -19,6 +19,10 @@ jobs:
         with:
           channel: stable
 
+      - name: Configure iOS
+        run: |
+          flutter create . --platforms=ios
+
       - name: Get dependencies
         run: flutter pub get
 
@@ -30,6 +34,7 @@ jobs:
 
       - name: Create IPA
         run: |
+          rm -rf Payload
           mkdir -p Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
           zip -r KurdDesign-AI-IPA.ipa Payload
