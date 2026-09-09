@@ -23,7 +23,7 @@ class KurdDesignAI extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.deepPurple,
-        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF8F7FA),
       ),
       home: const DesignEditorPage(),
     );
@@ -34,8 +34,7 @@ class DesignEditorPage extends StatefulWidget {
   const DesignEditorPage({super.key});
 
   @override
-  State<DesignEditorPage> createState() =>
-      _DesignEditorPageState();
+  State<DesignEditorPage> createState() => _DesignEditorPageState();
 }
 
 class _DesignEditorPageState extends State<DesignEditorPage> {
@@ -51,13 +50,13 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
   double density = 3;
   double threshold = 180;
 
-  bool isPreparingImage = false;
   bool isConverting = false;
   bool isExporting = false;
+  bool isPreparingImage = false;
 
-  String? imageError;
+  String? previewError;
 
-  Future<Uint8List> prepareImage(Uint8List bytes) async {
+  Future<Uint8List> _prepareImage(Uint8List bytes) async {
     try {
       final decoded = img.decodeImage(bytes);
 
@@ -66,10 +65,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       }
 
       final normalized = img.bakeOrientation(decoded);
+      final pngBytes = img.encodePng(normalized);
 
-      final png = img.encodePng(normalized);
-
-      return Uint8List.fromList(png);
+      return Uint8List.fromList(pngBytes);
     } catch (_) {
       return bytes;
     }
@@ -77,20 +75,26 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
   Future<void> pickImage() async {
     try {
-      final XFile? file = await picker.pickImage(
+      final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 100,
       );
 
-      if (file == null) {
+      if (image == null) {
         return;
       }
 
-      final Uint8List bytes = await file.readAsBytes();
+      final Uint8List bytes = await image.readAsBytes();
 
       if (bytes.isEmpty) {
-        showMessage(
-          'وێنەکە بەتاڵە یان ناتوانرێت بخوێندرێتەوە.',
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'وێنەکە بەتاڵە یان ناتوانرێت بخوێندرێتەوە.',
+            ),
+          ),
         );
         return;
       }
@@ -101,11 +105,11 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         isPreparingImage = true;
         selectedImage = bytes;
         previewImage = null;
-        imageError = null;
+        previewError = null;
         stitches = [];
       });
 
-      final Uint8List prepared = await prepareImage(bytes);
+      final Uint8List prepared = await _prepareImage(bytes);
 
       if (!mounted) return;
 
@@ -113,32 +117,35 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         previewImage = prepared;
         isPreparingImage = false;
       });
-
-      showMessage('وێنەکە بە سەرکەوتوویی هێنرا.');
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
         isPreparingImage = false;
-        imageError = 'نەتوانرا وێنەکە پیشان بدرێت.';
+        previewError = 'نەتوانرا وێنەکە ئامادە بکرێت.';
       });
 
-      showMessage('هەڵە لە هێنانی وێنە: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('هەڵە لە هێنانی وێنە: $e'),
+        ),
+      );
     }
   }
 
   Future<void> convertToStitches() async {
-    final Uint8List? bytes =
-        previewImage ?? selectedImage;
+    final Uint8List? imageBytes = previewImage ?? selectedImage;
 
-    if (bytes == null) {
-      showMessage(
-        'سەرەتا PNG یان JPG هەڵبژێرە.',
+    if (imageBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'سەرەتا PNG یان JPG هەڵبژێرە.',
+          ),
+        ),
       );
       return;
     }
-
-    if (isConverting) return;
 
     setState(() {
       isConverting = true;
@@ -147,7 +154,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     try {
       final List<StitchPoint> result =
           StitchEngine.imageToStitches(
-        bytes,
+        imageBytes,
         maxSize: 400,
         density: density,
         widthMm: width,
@@ -163,14 +170,22 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       });
 
       if (result.isEmpty) {
-        showMessage(
-          'هیچ Stitch ـێک نەدۆزرایەوە. Threshold بگۆڕە.',
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'هیچ Stitch ـێک نەدۆزرایەوە. Threshold زیاد بکە.',
+            ),
+          ),
         );
         return;
       }
 
-      showMessage(
-        '${result.length} Stitch دروست کرا.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${result.length} Stitch دروست کرا.',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -179,29 +194,34 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         isConverting = false;
       });
 
-      showMessage(
-        'هەڵە لە گۆڕینی وێنە: $e',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'هەڵە لە گۆڕینی وێنە: $e',
+          ),
+        ),
       );
     }
   }
 
   Future<void> createDst() async {
     if (stitches.isEmpty) {
-      showMessage(
-        'سەرەتا وێنەکە بکە بە Stitch.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'سەرەتا وێنەکە بکە بە Stitch.',
+          ),
+        ),
       );
       return;
     }
-
-    if (isExporting) return;
 
     setState(() {
       isExporting = true;
     });
 
     try {
-      final Uint8List bytes =
-          DstExporter.createDst(
+      final Uint8List bytes = DstExporter.createDst(
         stitches,
         name: 'KURDDESIGN',
       );
@@ -232,8 +252,12 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         isExporting = false;
       });
 
-      showMessage(
-        'هەڵە لە دروستکردنی DST: $e',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'هەڵە لە دروستکردنی DST: $e',
+          ),
+        ),
       );
     }
   }
@@ -242,49 +266,21 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     setState(() {
       selectedImage = null;
       previewImage = null;
-      imageError = null;
+      previewError = null;
       stitches = [];
     });
   }
 
-  void showMessage(String message) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
-      );
-  }
-
-  Widget buildImagePreview() {
+  Widget _buildDesignPreview() {
     if (isPreparingImage) {
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
 
-    if (imageError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            imageError!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.red,
-            ),
-          ),
-        ),
-      );
-    }
+    final Uint8List? imageBytes = previewImage ?? selectedImage;
 
-    final Uint8List? bytes =
-        previewImage ?? selectedImage;
-
-    if (bytes == null) {
+    if (imageBytes == null) {
       return const Center(
         child: Text(
           'سەرەتا وێنەیەک هەڵبژێرە',
@@ -293,226 +289,103 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     }
 
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.white,
-      alignment: Alignment.center,
-      child: Image.memory(
-        bytes,
-        fit: BoxFit.contain,
-        width: double.infinity,
-        height: double.infinity,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (
-          BuildContext context,
-          Object error,
-          StackTrace? stackTrace,
-        ) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20),
+    if (previewError != null) {
+      return Center(
+        child: Text(
+          previewError!,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.red,
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        color: Colors.white,
+        alignment: Alignment.center,
+        child: Image.memory(
+          imageBytes,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          gaplessPlayback: true,
+          errorBuilder: (
+            BuildContext context,
+            Object error,
+            StackTrace? stackTrace,
+          ) {
+            return const Center(
               child: Text(
-                'نەتوانرا وێنەکە پیشان بدرێت.',
+                'نەتوانرا وێنەکە پیشان بدرێت',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.red,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget buildSliderCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'قەبارە و ڕێکخستنەکان',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            Text(
-              'پانی: ${width.round()} mm',
-            ),
-
-            Slider(
-              value: width,
-              min: 10,
-              max: 200,
-              divisions: 38,
-              onChanged: (value) {
-                setState(() {
-                  width = value;
-                });
-              },
-            ),
-
-            Text(
-              'بەرزی: ${height.round()} mm',
-            ),
-
-            Slider(
-              value: height,
-              min: 10,
-              max: 200,
-              divisions: 38,
-              onChanged: (value) {
-                setState(() {
-                  height = value;
-                });
-              },
-            ),
-
-            const SizedBox(height: 5),
-
-            Text(
-              'Stitch Density: '
-              '${density.toStringAsFixed(1)}',
-            ),
-
-            Slider(
-              value: density,
-              min: 1,
-              max: 8,
-              divisions: 14,
-              onChanged: (value) {
-                setState(() {
-                  density = value;
-                });
-              },
-            ),
-
-            const SizedBox(height: 5),
-
-            Text(
-              'Image Threshold: '
-              '${threshold.round()}',
-            ),
-
-            Slider(
-              value: threshold,
-              min: 50,
-              max: 240,
-              divisions: 38,
-              onChanged: (value) {
-                setState(() {
-                  threshold = value;
-                });
-              },
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget buildStitchPreview() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Stitch Preview',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 5),
-
-            const Text(
-              'پێشبینینی نەخشەی دوورین',
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: 12),
-
-            Container(
-              height: 320,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(
-                  color: Colors.grey.shade300,
-                ),
-                borderRadius:
-                    BorderRadius.circular(12),
-              ),
-              child: stitches.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'وێنەکە بکە بە Stitch',
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  : CustomPaint(
-                      painter:
-                          StitchPainter(stitches),
-                      child:
-                          const SizedBox.expand(),
-                    ),
-            ),
-
-            if (stitches.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                '${stitches.length} Stitch',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ],
+  Widget _sectionTitle(
+    String title,
+    String subtitle,
+  ) {
+    return Column(
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
+        const SizedBox(height: 5),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey.shade700,
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-
       appBar: AppBar(
         title: const Text(
           'KurdDesign-AI',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         centerTitle: true,
+        backgroundColor: const Color(0xFFEDE7F6),
       ),
-
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-
+        padding: const EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          35,
+        ),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.stretch,
-
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 10),
-
             const Icon(
               Icons.design_services,
-              size: 70,
+              size: 64,
             ),
 
             const SizedBox(height: 10),
@@ -526,106 +399,222 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
 
             const Text(
-              'PNG / JPG  →  Stitch  →  DST',
+              'PNG/JPG → Stitch → DST',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 17,
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 24),
 
             FilledButton.icon(
               onPressed:
-                  isPreparingImage
-                      ? null
-                      : pickImage,
+                  isPreparingImage ? null : pickImage,
               icon: const Icon(
                 Icons.photo_library,
               ),
               label: const Text(
                 'هێنانی وێنەی PNG / JPG',
+                style: TextStyle(
+                  fontSize: 16,
+                ),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             if (selectedImage != null)
               Card(
+                elevation: 1,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.all(12),
-
+                  padding: const EdgeInsets.all(12),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.stretch,
-
                     children: [
-                      const Text(
+                      _sectionTitle(
                         'Design Preview',
-                        textAlign:
-                            TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      const Text(
                         'وێنەی ڕەنگاڵە و نووسینی نەخشەکە',
-                        textAlign:
-                            TextAlign.center,
                       ),
 
                       const SizedBox(height: 12),
 
                       Container(
-                        height: 320,
+                        height: 300,
                         width: double.infinity,
-                        clipBehavior:
-                            Clip.antiAlias,
-                        decoration:
-                            BoxDecoration(
+                        decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius:
-                              BorderRadius.circular(
-                            12,
-                          ),
                           border: Border.all(
-                            color:
-                                Colors.grey.shade300,
+                            color: Colors.grey.shade300,
                           ),
+                          borderRadius:
+                              BorderRadius.circular(14),
                         ),
-                        child:
-                            buildImagePreview(),
+                        child: _buildDesignPreview(),
                       ),
                     ],
                   ),
                 ),
               ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            buildSliderCard(),
+            Card(
+              elevation: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'قەبارە و ڕێکخستن',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
 
-            const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-            buildStitchPreview(),
+                    Text(
+                      'پانی: ${width.round()} mm',
+                    ),
 
-            const SizedBox(height: 20),
+                    Slider(
+                      value: width,
+                      min: 10,
+                      max: 200,
+                      divisions: 38,
+                      onChanged: (value) {
+                        setState(() {
+                          width = value;
+                        });
+                      },
+                    ),
+
+                    Text(
+                      'بەرزی: ${height.round()} mm',
+                    ),
+
+                    Slider(
+                      value: height,
+                      min: 10,
+                      max: 200,
+                      divisions: 38,
+                      onChanged: (value) {
+                        setState(() {
+                          height = value;
+                        });
+                      },
+                    ),
+
+                    Text(
+                      'Stitch Density: '
+                      '${density.toStringAsFixed(1)}',
+                    ),
+
+                    Slider(
+                      value: density,
+                      min: 1,
+                      max: 8,
+                      divisions: 14,
+                      onChanged: (value) {
+                        setState(() {
+                          density = value;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(
+                      'Image Threshold: '
+                      '${threshold.round()}',
+                    ),
+
+                    Slider(
+                      value: threshold,
+                      min: 50,
+                      max: 240,
+                      divisions: 38,
+                      onChanged: (value) {
+                        setState(() {
+                          threshold = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    _sectionTitle(
+                      'Stitch Preview',
+                      'پێشبینینی نەخشەی دوورین',
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Container(
+                      height: 320,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: Colors.grey.shade300,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                      child: stitches.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'وێنەکە بکە بە Stitch',
+                                textAlign:
+                                    TextAlign.center,
+                              ),
+                            )
+                          : CustomPaint(
+                              painter:
+                                  StitchPainter(stitches),
+                              child:
+                                  const SizedBox.expand(),
+                            ),
+                    ),
+
+                    if (stitches.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        '${stitches.length} Stitch',
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
 
             FilledButton.icon(
               onPressed:
                   isConverting
                       ? null
                       : convertToStitches,
-
               icon: isConverting
                   ? const SizedBox(
                       width: 20,
@@ -638,11 +627,13 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                   : const Icon(
                       Icons.auto_awesome,
                     ),
-
               label: Text(
                 isConverting
                     ? 'لە کاردایە...'
                     : 'گۆڕینی وێنە بۆ Stitch',
+                style: const TextStyle(
+                  fontSize: 16,
+                ),
               ),
             ),
 
@@ -650,10 +641,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
 
             FilledButton.icon(
               onPressed:
-                  isExporting
-                      ? null
-                      : createDst,
-
+                  isExporting ? null : createDst,
               icon: isExporting
                   ? const SizedBox(
                       width: 20,
@@ -666,11 +654,13 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                   : const Icon(
                       Icons.download,
                     ),
-
               label: Text(
                 isExporting
                     ? 'ئامادە دەکرێت...'
                     : 'دروستکردن و ناردنی DST',
+                style: const TextStyle(
+                  fontSize: 16,
+                ),
               ),
             ),
 
@@ -685,8 +675,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 'پاککردنەوە',
               ),
             ),
-
-            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -704,7 +692,9 @@ class StitchPainter extends CustomPainter {
     Canvas canvas,
     Size size,
   ) {
-    if (stitches.isEmpty) return;
+    if (stitches.isEmpty) {
+      return;
+    }
 
     double minX =
         stitches.first.x.toDouble();
@@ -718,18 +708,28 @@ class StitchPainter extends CustomPainter {
     double maxY =
         stitches.first.y.toDouble();
 
-    for (final StitchPoint stitch
-        in stitches) {
+    for (final stitch in stitches) {
       final double x =
           stitch.x.toDouble();
 
       final double y =
           stitch.y.toDouble();
 
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
+      if (x < minX) {
+        minX = x;
+      }
+
+      if (x > maxX) {
+        maxX = x;
+      }
+
+      if (y < minY) {
+        minY = y;
+      }
+
+      if (y > maxY) {
+        maxY = y;
+      }
     }
 
     final double designWidth =
@@ -743,7 +743,7 @@ class StitchPainter extends CustomPainter {
       return;
     }
 
-    const double padding = 25;
+    const double padding = 28;
 
     final double availableWidth =
         size.width - padding * 2;
@@ -757,10 +757,15 @@ class StitchPainter extends CustomPainter {
     final double scaleY =
         availableHeight / designHeight;
 
-    final double scale =
+    double scale =
         scaleX < scaleY
             ? scaleX
             : scaleY;
+
+    // Keep the preview at a useful size.
+    if (scale.isInfinite || scale.isNaN) {
+      return;
+    }
 
     final double centerX =
         size.width / 2;
@@ -774,19 +779,61 @@ class StitchPainter extends CustomPainter {
     final double designCenterY =
         (minY + maxY) / 2;
 
+    /*
+     * IMPORTANT:
+     *
+     * The real stitch list is NOT changed.
+     * We only reduce the number of marks
+     * drawn on screen.
+     *
+     * This prevents 10,000+ stitches from
+     * becoming one solid black shape.
+     */
+    int previewStep;
+
+    if (stitches.length > 20000) {
+      previewStep = 10;
+    } else if (stitches.length > 12000) {
+      previewStep = 8;
+    } else if (stitches.length > 8000) {
+      previewStep = 6;
+    } else if (stitches.length > 4000) {
+      previewStep = 4;
+    } else if (stitches.length > 2000) {
+      previewStep = 3;
+    } else {
+      previewStep = 2;
+    }
+
+    /*
+     * Thread-like preview.
+     *
+     * Purple is used instead of black so the
+     * stitch structure remains visible.
+     */
     final Paint stitchPaint = Paint()
+      ..color = const Color(0xFF5E35B1)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
+      ..strokeWidth = 1.15
       ..strokeCap = StrokeCap.round;
 
-    const double stitchLength = 3;
+    /*
+     * Very light center point.
+     */
+    final Paint pointPaint = Paint()
+      ..color = const Color(0xFF7E57C2)
+      ..style = PaintingStyle.fill;
 
-    const int skip = 2;
-
+    /*
+     * Draw the actual stitch marks.
+     *
+     * We don't connect every stitch with one
+     * giant black path.
+     */
     for (
       int i = 0;
       i < stitches.length;
-      i += skip
+      i += previewStep
     ) {
       final StitchPoint stitch =
           stitches[i];
@@ -801,10 +848,33 @@ class StitchPainter extends CustomPainter {
           (stitch.y - designCenterY) *
               scale;
 
+      if (x < -20 ||
+          x > size.width + 20 ||
+          y < -20 ||
+          y > size.height + 20) {
+        continue;
+      }
+
+      /*
+       * Small embroidery stitch.
+       *
+       * Alternating direction gives a
+       * woven/stitched appearance.
+       */
       final double direction =
-          ((i ~/ skip) % 2 == 0)
+          ((i ~/ previewStep) % 2 == 0)
               ? 1.0
               : -1.0;
+
+      double stitchLength = 2.7;
+
+      /*
+       * If the design is very large on screen,
+       * make the stitches slightly clearer.
+       */
+      if (scale > 3) {
+        stitchLength = 3.2;
+      }
 
       canvas.drawLine(
         Offset(
@@ -816,6 +886,15 @@ class StitchPainter extends CustomPainter {
           y + stitchLength * direction,
         ),
         stitchPaint,
+      );
+
+      /*
+       * Tiny point in the center.
+       */
+      canvas.drawCircle(
+        Offset(x, y),
+        0.65,
+        pointPaint,
       );
     }
   }
