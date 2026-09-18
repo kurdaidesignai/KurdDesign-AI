@@ -1,20 +1,15 @@
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
-
 import 'dst_export.dart';
 import 'stitch_engine.dart';
-
 void main() {
   runApp(const KurdDesignAI());
 }
-
 class KurdDesignAI extends StatelessWidget {
   const KurdDesignAI({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -29,66 +24,49 @@ class KurdDesignAI extends StatelessWidget {
     );
   }
 }
-
 class DesignEditorPage extends StatefulWidget {
   const DesignEditorPage({super.key});
-
   @override
   State<DesignEditorPage> createState() => _DesignEditorPageState();
 }
-
 class _DesignEditorPageState extends State<DesignEditorPage> {
   final ImagePicker picker = ImagePicker();
-
   Uint8List? selectedImage;
   Uint8List? previewImage;
-
   List<StitchPoint> stitches = [];
-
   double width = 50;
   double height = 50;
   double density = 3;
   double threshold = 180;
-
   bool isConverting = false;
   bool isExporting = false;
   bool isPreparingImage = false;
-
   String? previewError;
-
   Future<Uint8List> _prepareImage(Uint8List bytes) async {
     try {
       final decoded = img.decodeImage(bytes);
-
       if (decoded == null) {
         return bytes;
       }
-
       final normalized = img.bakeOrientation(decoded);
       final pngBytes = img.encodePng(normalized);
-
       return Uint8List.fromList(pngBytes);
     } catch (_) {
       return bytes;
     }
   }
-
   Future<void> pickImage() async {
     try {
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 100,
       );
-
       if (image == null) {
         return;
       }
-
       final Uint8List bytes = await image.readAsBytes();
-
       if (bytes.isEmpty) {
         if (!mounted) return;
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -98,9 +76,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         );
         return;
       }
-
       if (!mounted) return;
-
       setState(() {
         isPreparingImage = true;
         selectedImage = bytes;
@@ -108,23 +84,18 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         previewError = null;
         stitches = [];
       });
-
       final Uint8List prepared = await _prepareImage(bytes);
-
       if (!mounted) return;
-
       setState(() {
         previewImage = prepared;
         isPreparingImage = false;
       });
     } catch (e) {
       if (!mounted) return;
-
       setState(() {
         isPreparingImage = false;
         previewError = 'نەتوانرا وێنەکە ئامادە بکرێت.';
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('هەڵە لە هێنانی وێنە: $e'),
@@ -132,10 +103,8 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     }
   }
-
   Future<void> convertToStitches() async {
     final Uint8List? imageBytes = previewImage ?? selectedImage;
-
     if (imageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -146,11 +115,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
       return;
     }
-
     setState(() {
       isConverting = true;
     });
-
     try {
       final List<StitchPoint> result =
           StitchEngine.imageToStitches(
@@ -161,14 +128,11 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         heightMm: height,
         threshold: threshold.round(),
       );
-
       if (!mounted) return;
-
       setState(() {
         stitches = result;
         isConverting = false;
       });
-
       if (result.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -179,7 +143,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         );
         return;
       }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -189,11 +152,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     } catch (e) {
       if (!mounted) return;
-
       setState(() {
         isConverting = false;
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -203,7 +164,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     }
   }
-
   Future<void> createDst() async {
     if (stitches.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -215,29 +175,23 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
       return;
     }
-
     setState(() {
       isExporting = true;
     });
-
     try {
       final Uint8List bytes = DstExporter.createDst(
         stitches,
         name: 'KURDDESIGN',
       );
-
       final XFile file = XFile.fromData(
         bytes,
         name: 'KURDDESIGN.dst',
         mimeType: 'application/octet-stream',
       );
-
       if (!mounted) return;
-
       setState(() {
         isExporting = false;
       });
-
       await SharePlus.instance.share(
         ShareParams(
           files: <XFile>[file],
@@ -247,11 +201,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     } catch (e) {
       if (!mounted) return;
-
       setState(() {
         isExporting = false;
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -261,7 +213,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       );
     }
   }
-
   void clearDesign() {
     setState(() {
       selectedImage = null;
@@ -270,17 +221,14 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       stitches = [];
     });
   }
-
   Widget _buildDesignPreview() {
     if (isPreparingImage) {
       return const Center(
         child: CircularProgressIndicator(),
       );
     }
-
     final Uint8List? imageBytes =
         previewImage ?? selectedImage;
-
     if (imageBytes == null) {
       return const Center(
         child: Text(
@@ -289,7 +237,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         ),
       );
     }
-
     if (previewError != null) {
       return Center(
         child: Text(
@@ -301,7 +248,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
         ),
       );
     }
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: Container(
@@ -333,7 +279,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       ),
     );
   }
-
   Widget _sectionTitle(
     String title,
     String subtitle,
@@ -360,7 +305,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
       ],
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -388,9 +332,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
               Icons.design_services,
               size: 64,
             ),
-
             const SizedBox(height: 10),
-
             const Text(
               'KurdDesign-AI',
               textAlign: TextAlign.center,
@@ -399,9 +341,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 7),
-
             const Text(
               'PNG/JPG → Stitch → DST',
               textAlign: TextAlign.center,
@@ -409,9 +349,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 fontSize: 17,
               ),
             ),
-
             const SizedBox(height: 24),
-
             FilledButton.icon(
               onPressed:
                   isPreparingImage ? null : pickImage,
@@ -425,9 +363,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 18),
-
             if (selectedImage != null)
               Card(
                 elevation: 1,
@@ -437,11 +373,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                     children: [
                       _sectionTitle(
                         'Design Preview',
-                        'وێنەی ڕەنگاڵە و نووسینی نەخشەکە',
+                        'وێنەی ڕەنگاڵە و نەخشەکە',
                       ),
-
                       const SizedBox(height: 12),
-
                       Container(
                         height: 300,
                         width: double.infinity,
@@ -459,9 +393,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                   ),
                 ),
               ),
-
             const SizedBox(height: 18),
-
             Card(
               elevation: 1,
               child: Padding(
@@ -477,13 +409,10 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
                     Text(
                       'پانی: ${width.round()} mm',
                     ),
-
                     Slider(
                       value: width,
                       min: 10,
@@ -495,11 +424,9 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                         });
                       },
                     ),
-
                     Text(
                       'بەرزی: ${height.round()} mm',
                     ),
-
                     Slider(
                       value: height,
                       min: 10,
@@ -511,12 +438,10 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                         });
                       },
                     ),
-
                     Text(
                       'Stitch Density: '
                       '${density.toStringAsFixed(1)}',
                     ),
-
                     Slider(
                       value: density,
                       min: 1,
@@ -528,14 +453,11 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                         });
                       },
                     ),
-
                     const SizedBox(height: 8),
-
                     Text(
                       'Image Threshold: '
                       '${threshold.round()}',
                     ),
-
                     Slider(
                       value: threshold,
                       min: 50,
@@ -551,9 +473,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 18),
-
             Card(
               elevation: 2,
               child: Padding(
@@ -564,9 +484,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                       'Stitch Preview',
                       'پێشبینینی نەخشەی دوورین',
                     ),
-
                     const SizedBox(height: 12),
-
                     Container(
                       height: 320,
                       width: double.infinity,
@@ -597,7 +515,6 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                                   const SizedBox.expand(),
                             ),
                     ),
-
                     if (stitches.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -612,9 +529,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 18),
-
             FilledButton.icon(
               onPressed:
                   isConverting
@@ -641,9 +556,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
             FilledButton.icon(
               onPressed:
                   isExporting ? null : createDst,
@@ -668,9 +581,7 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
             OutlinedButton.icon(
               onPressed: clearDesign,
               icon: const Icon(
@@ -686,16 +597,13 @@ class _DesignEditorPageState extends State<DesignEditorPage> {
     );
   }
 }
-
 class StitchPainter extends CustomPainter {
   final List<StitchPoint> stitches;
   final Uint8List? imageBytes;
-
   StitchPainter(
     this.stitches, {
     this.imageBytes,
   });
-
   @override
   void paint(
     Canvas canvas,
@@ -704,61 +612,44 @@ class StitchPainter extends CustomPainter {
     if (stitches.isEmpty) {
       return;
     }
-
     double minX = stitches.first.x.toDouble();
     double maxX = stitches.first.x.toDouble();
     double minY = stitches.first.y.toDouble();
     double maxY = stitches.first.y.toDouble();
-
     for (final stitch in stitches) {
       final x = stitch.x.toDouble();
       final y = stitch.y.toDouble();
-
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
     }
-
     final designWidth = maxX - minX;
     final designHeight = maxY - minY;
-
     if (designWidth <= 0 || designHeight <= 0) {
       return;
     }
-
     const padding = 28.0;
-
     final availableWidth =
         size.width - padding * 2;
-
     final availableHeight =
         size.height - padding * 2;
-
     final scaleX =
         availableWidth / designWidth;
-
     final scaleY =
         availableHeight / designHeight;
-
     final scale =
         scaleX < scaleY ? scaleX : scaleY;
-
     if (scale.isInfinite || scale.isNaN) {
       return;
     }
-
     final centerX = size.width / 2;
     final centerY = size.height / 2;
-
     final designCenterX =
         (minX + maxX) / 2;
-
     final designCenterY =
         (minY + maxY) / 2;
-
     img.Image? sourceImage;
-
     if (imageBytes != null) {
       try {
         sourceImage =
@@ -767,9 +658,7 @@ class StitchPainter extends CustomPainter {
         sourceImage = null;
       }
     }
-
     int previewStep;
-
     if (stitches.length > 20000) {
       previewStep = 10;
     } else if (stitches.length > 12000) {
@@ -783,39 +672,33 @@ class StitchPainter extends CustomPainter {
     } else {
       previewStep = 2;
     }
-
     for (
       int i = 0;
       i < stitches.length;
       i += previewStep
     ) {
       final stitch = stitches[i];
-
       final x =
           centerX +
           (stitch.x - designCenterX) * scale;
-
       final y =
           centerY +
           (stitch.y - designCenterY) * scale;
-
       if (x < -20 ||
           x > size.width + 20 ||
           y < -20 ||
           y > size.height + 20) {
         continue;
       }
-
       Color stitchColor =
-          const Color(0xFF5E35B1);
-
+          const Color(0xFF333333);
+      // Use the original image colors
+      // instead of forcing every stitch to purple.
       if (sourceImage != null) {
         final normalizedX =
             (stitch.x - minX) / designWidth;
-
         final normalizedY =
             (stitch.y - minY) / designHeight;
-
         final imageX =
             (normalizedX *
                     (sourceImage.width - 1))
@@ -824,7 +707,6 @@ class StitchPainter extends CustomPainter {
                   0,
                   sourceImage.width - 1,
                 );
-
         final imageY =
             (normalizedY *
                     (sourceImage.height - 1))
@@ -833,13 +715,11 @@ class StitchPainter extends CustomPainter {
                   0,
                   sourceImage.height - 1,
                 );
-
         final pixel =
             sourceImage.getPixel(
           imageX,
           imageY,
         );
-
         stitchColor = Color.fromARGB(
           255,
           pixel.r.toInt(),
@@ -847,28 +727,22 @@ class StitchPainter extends CustomPainter {
           pixel.b.toInt(),
         );
       }
-
       final paint = Paint()
         ..color = stitchColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.15
         ..strokeCap = StrokeCap.round;
-
       final pointPaint = Paint()
         ..color = stitchColor
         ..style = PaintingStyle.fill;
-
       final direction =
           ((i ~/ previewStep) % 2 == 0)
               ? 1.0
               : -1.0;
-
       double stitchLength = 2.7;
-
       if (scale > 3) {
         stitchLength = 3.2;
       }
-
       canvas.drawLine(
         Offset(
           x - stitchLength,
@@ -880,7 +754,6 @@ class StitchPainter extends CustomPainter {
         ),
         paint,
       );
-
       canvas.drawCircle(
         Offset(x, y),
         0.65,
@@ -888,7 +761,6 @@ class StitchPainter extends CustomPainter {
       );
     }
   }
-
   @override
   bool shouldRepaint(
     covariant StitchPainter oldDelegate,
